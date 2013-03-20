@@ -75,7 +75,7 @@
     var spec = lang[node.type];
     if (!spec) {
       s += " ???\n";
-      return;
+      return s;
     }
 
     var fields = allFields(spec);
@@ -108,7 +108,6 @@
     }
 
     s += "\n" + children.join("");
-
     return s;
   }
 
@@ -204,7 +203,9 @@
         if (options["emit-ast"]) {
           code = node;
         } else {
-          code = escodegen.generate(node, { base: "", indent: "  ", comment: true });
+          code = snarf('./src/template/header.js');
+          code += escodegen.generate(node, { base: "", indent: "  ", comment: true });
+          code += snarf('./src/template/footer.js');
         }
       }
     } catch (e) {

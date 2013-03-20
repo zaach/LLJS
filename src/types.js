@@ -142,11 +142,11 @@
   }
 
   const memcpyTy  = createMemcpyType(bytePointerTy);
-  const memcpy2Ty = createMemcpyType(new PointerType(u16ty));
-  const memcpy4Ty = createMemcpyType(new PointerType(u32ty));
+  // const memcpy2Ty = createMemcpyType(new PointerType(u16ty));
+  // const memcpy4Ty = createMemcpyType(new PointerType(u32ty));
   const memsetTy  = createMemsetType(bytePointerTy);
-  const memset2Ty = createMemsetType(new PointerType(u16ty));
-  const memset4Ty = createMemsetType(new PointerType(u32ty));
+  // const memset2Ty = createMemsetType(new PointerType(u16ty));
+  // const memset4Ty = createMemsetType(new PointerType(u32ty));
 
   u8ty.integral = u8ty.numeric = true;
   i8ty.integral = i8ty.numeric = true;
@@ -214,11 +214,11 @@
   exports.freeTy = freeTy;
 
   exports.memsetTy = memsetTy;
-  exports.memset2Ty = memset2Ty;
-  exports.memset4Ty = memset4Ty;
+  // exports.memset2Ty = memset2Ty;
+  // exports.memset4Ty = memset4Ty;
 
   exports.memcpyTy = memcpyTy;
-  exports.memcpy2Ty = memcpy2Ty;
-  exports.memcpy4Ty = memcpy4Ty;
+  // exports.memcpy2Ty = memcpy2Ty;
+  // exports.memcpy4Ty = memcpy4Ty;
 
 }).call(this, typeof exports === "undefined" ? (Types = {}) : exports);

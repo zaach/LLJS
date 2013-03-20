@@ -55,7 +55,7 @@
   function literal(x) {
     return new Literal(x);
   }
-  
+
   /**
    * Import utilities.
    */
@@ -400,9 +400,31 @@
     var scope = new Frame(null, "Program");
     o.scope = this.frame = scope;
 
-    scope.addVariable(new Variable("exports"), true);
-    scope.addVariable(new Variable("require"), true);
-    scope.addVariable(new Variable("load"), true);
+    // scope.addVariable(new Variable("exports"), true);
+    // scope.addVariable(new Variable("require"), true);
+    // scope.addVariable(new Variable("load"), true);
+
+    scope.addVariable(scope.freshVariable("malloc", Types.mallocTy), true);
+    scope.addVariable(scope.freshVariable("free", Types.mallocTy), true);
+    scope.addVariable(scope.freshVariable("mempy", Types.mallocTy), true);
+    scope.addVariable(scope.freshVariable("memset", Types.mallocTy), true);
+
+    scope.addVariable(scope.freshVariable("U1", new Types.ArrayType(Types.u8ty)), true);
+    scope.addVariable(scope.freshVariable("I1", new Types.ArrayType(Types.i8ty)), true);
+    scope.addVariable(scope.freshVariable("U2", new Types.ArrayType(Types.u16ty)), true);
+    scope.addVariable(scope.freshVariable("I2", new Types.ArrayType(Types.i16ty)), true);
+    scope.addVariable(scope.freshVariable("U4", new Types.ArrayType(Types.u32ty)), true);
+    scope.addVariable(scope.freshVariable("I4", new Types.ArrayType(Types.i32ty)), true);
+    scope.addVariable(scope.freshVariable("F4", new Types.ArrayType(Types.f32ty)), true);
+    scope.addVariable(scope.freshVariable("F8", new Types.ArrayType(Types.f64ty)), true);
+
+    scope.addVariable(
+        scope.freshVariable(
+            "print",
+            new Types.ArrowType([Types.u32ty], Types.voidTy)
+        ),
+        true
+    );
 
     logger.push(this);
     scanList(this.body, o);
@@ -460,7 +482,8 @@
     o.scope = this.frame = scope;
 
     if (o.thisTy) {
-      scope.addVariable(new Variable("this", o.thisTy));
+      var variable = new Variable("this", o.thisTy);
+      scope.addVariable(variable);
     }
 
     var params = this.params;
@@ -505,7 +528,7 @@
     var name = this.id.name;
     var ty = this.decltype ? this.decltype.reflect(o) : undefined;
 
-    check(!scope.getVariable(name, true),
+     check(!scope.getVariable(name, true),
           "Variable " + quote(name) + " is already declared in local scope.");
     scope.addVariable(new Variable(name, ty), o.declkind === "extern");
   };
@@ -633,13 +656,17 @@
           }
           var functionDeclaration = member.declarator;
           var fnName = functionDeclaration.id.name;
+
+          functionDeclaration.params.unshift(
+              new Identifier('thisPtr')
+          );
           functionDeclaration.id.name = name + "$" + fnName;
           functions.push(functionDeclaration.transform(o));
         }
       }
     }
     if (functions.length) {
-      return new BlockStatement(functions);
+      return new BlockStatement(functions, true);
     }
     return null;
   };
@@ -710,7 +737,9 @@
     var scope = o.scope;
     var variable = scope.getVariable("this");
     if (variable) {
-      return cast(this, variable.type);
+      // `this` is actually just a pointer variable named something
+      // else that is passed as the first argument
+      return cast(new Identifier("thisPtr"), variable.type);
     }
   };
 
@@ -736,6 +765,11 @@
     if (this.kind === "extern") {
       return null;
     }
+
+    // We shouldn't have any variable declarations here, they are
+    // created in the prologue (asm.js requirement). Convert these to
+    // AssignmentExpression-s if they have an initializer.
+    return new ExpressionStatement(new SequenceExpression(this.declarations));
   };
 
   VariableDeclarator.prototype.transformNode = function (o) {
@@ -743,29 +777,25 @@
     var type = variable.type;
 
     if (!type) {
-      return;
-    }
-
-    if (!this.init && type.defaultValue !== undefined) {
-      // Make sure we have an initializer if the type has a default value.
-      this.init = literal(type.defaultValue);
+      throw new Error('variable types required');
     }
 
     if (this.arguments) {
       // Does the variable declaration call the constructor?
       var member = type.getMember(type.name);
       if (member) {
-        var constructor = new MemberExpression(new Identifier(type.name + "$" + type.name), new Identifier("call"), false);
+        var constructor = new Identifier(type.name + "$" + type.name);
         constructor = cast(constructor, member.type, true);
         var obj = new UnaryExpression("&", this.id, this.loc).transform(o);
         var callConstructor = new CallExpression(constructor, [obj].concat(this.arguments), this.loc).transform(o);
         // TODO: This is kind of retarded.
-        this.init = new SequenceExpression([callConstructor, this.id]);
+        return new SequenceExpression([callConstructor, this.id]);
       }
-    } else if (this.init) {
+    }
+    else if (this.init) {
       if (this.init instanceof ArrayExpression) {
         var rootPointer = cast(this.id, new PointerType(type.getRoot()), true);
-        this.id = o.scope.freshTemp(type, this.loc);
+        // this.id = o.scope.freshTemp(type, this.loc);
         var elementInitializers = new SequenceExpression([]);
         var generated = 0;
         function generateInitializers(type, elements) {
@@ -790,14 +820,25 @@
           }
         }
         generateInitializers(type, this.init.elements);
-        this.init = elementInitializers.transform(o);
-      } else {
-        var a = (new AssignmentExpression(this.id, "=", this.init, this.init.loc)).transform(o);
-        this.id = a.left;
-        this.init = a.right;
+        return elementInitializers.transform(o);
       }
-    } else if (variable.isStackAllocated) {
-      this.id = o.scope.freshTemp(type, this.loc);
+      else {
+        var left = this.id;
+        var right = this.init;
+
+        if(right instanceof Literal &&
+           (type.name == 'f32' || type.name == 'f64')) {
+          right.forceDouble = true;
+        }
+
+        return (new AssignmentExpression(left, "=", right, this.init.loc)).transform(o);
+      }
+    }
+    else if (variable.isStackAllocated) {
+      return o.scope.freshTemp(type, this.loc);
+    }
+    else {
+      return null;
     }
   };
 
@@ -810,10 +851,10 @@
       check(returnType.assignableFrom(ty), "incompatible types: returning " +
             quote(Types.tystr(ty, 0)) + " as " + quote(Types.tystr(returnType, 0)));
       if (arg) {
-        this.argument = cast(arg, returnType);
+        this.argument = cast(arg, returnType, false, true);
       }
     }
-  }
+  };
 
   const BINOP_ARITHMETIC = ["+", "-", "*", "/", "%"];
   const BINOP_BITWISE    = ["<<", ">>", ">>>", "~", "&", "|"]
@@ -874,6 +915,7 @@
         // without warnings.
         return cast(this, Types.i32ty, true);
       }
+
       ty = Types.f64ty;
     }
 
@@ -896,7 +938,8 @@
 
     if (op === "delete" && ty) {
       check(ty instanceof PointerType, "cannot free non-pointer type");
-      return (new CallExpression(o.scope.FREE(), [cast(this.argument, Types.bytePointerTy)], this.loc)).transform(o);
+      return (new CallExpression(o.scope.FREE(),
+                                 [cast(this.argument, Types.bytePointerTy)], this.loc)).transform(o);
     }
 
     if (op === "*") {
@@ -930,7 +973,8 @@
     var ty;
     if (this.callee instanceof Identifier && (ty = o.types[this.callee.name])) {
       var pty = new PointerType(ty)
-      var allocation = new CallExpression(o.scope.MALLOC(), [cast(literal(ty.size), Types.u32ty)], this.loc);
+      var allocation = new CallExpression(o.scope.MALLOC(),
+                                          [cast(literal(ty.size), Types.u32ty)], this.loc);
       allocation = cast(allocation.transform(o), pty);
       // Check if we have a constructor ArrowType.
       if (ty instanceof StructType) {
@@ -953,7 +997,8 @@
                this.callee.computed &&
                (ty = o.types[this.callee.object.name])) {
       var size = new BinaryExpression("*", literal(ty.size), this.callee.property, this.loc);
-      var allocation = new CallExpression(o.scope.MALLOC(), [cast(size, Types.u32ty)], this.loc);
+      var allocation = new CallExpression(o.scope.MALLOC(),
+                                          [cast(size, Types.u32ty)], this.loc);
       return cast(allocation.transform(o), new PointerType(ty));
     }
     return Node.prototype.transform.call(this, o);
@@ -1005,16 +1050,13 @@
           quote(Types.tystr(rty, 0)) + " to " + quote(Types.tystr(lty, 0)));
 
     if (lty instanceof StructType) {
-      // Emit a memcpy using the largest alignment size we can.
-      var mc, size, pty;
+      var mc = scope.MEMCPY();
+      var size, pty;
       if (lty.align === Types.u32ty) {
-        mc = scope.MEMCPY(4);
         size = lty.size / 4;
       } else if (lty.align === Types.u16ty) {
-        mc = scope.MEMCPY(2);
         size = lty.size / 2;
       } else {
-        mc = scope.MEMCPY(Types.u8ty.size);
         size = lty.size;
       }
       var memcpyTy = mc.ty.paramTypes[0];
@@ -1083,10 +1125,7 @@
       var obj = this.callee.object;
       var member = this.callee.member;
       var name = obj.ty.base.name + "$" + member.name;
-      var fn = cast(new MemberExpression (
-        new Identifier(name),
-        new Identifier("call")
-      ), member.type, true);
+      var fn = cast(new Identifier(name), member.type, true);
       return new CallExpression (
         fn, [this.callee.object].concat(this.arguments)
       ).transform(o);
@@ -1134,9 +1173,10 @@
 
     var rty = expr.ty;
 
-    if (this === rty) {
-      return expr;
-    }
+    // asm.js requires every expression to be casted
+    // if (this === rty) {
+    //   return expr;
+    // }
 
     if (!force) {
       check(!(rty instanceof PointerType), "conversion from pointer to " +
@@ -1148,10 +1188,11 @@
     }
 
     if (!this.integral) {
-      if (rty && rty.numeric) {
-        return expr;
-      }
-      return new CallExpression(new Identifier("Number"), [expr], expr.loc);
+      return new UnaryExpression("+", expr);
+      // if (rty && rty.numeric) {
+      //     return expr;
+      // }
+      // return new CallExpression(new Identifier("Number"), [expr], expr.loc);
     }
 
     var conversion;
@@ -1257,6 +1298,7 @@
             this.base.align.size + "-byte aligned " + quote(Types.tystr(this, 0)), true);
     }
 
+    //return expr;
     return realign(expr, this.base.align.size);
   };
 
@@ -1278,44 +1320,92 @@
     var constants = [];
     var variables = [];
 
-    var frameSize = frame.frameSizeInWords;
+    var frameSize = frame.frameSize;
     if (frameSize) {
       var allocStack = new AssignmentExpression(frame.realSP(), "-=", literal(frameSize));
       var spDecl = new VariableDeclarator(frame.SP(), allocStack);
-      code.push(new VariableDeclaration("const", [spDecl]));
+      code.push(new VariableDeclaration("var", [spDecl]));
     }
 
     var cachedLocals = frame.cachedLocals;
     for (local in cachedLocals) {
       v = cachedLocals[local];
-      if (v.init) {
-        constants.push(v);
-      } else {
+      // if (v.init) {
+      //   constants.push(v);
+      // } else {
         variables.push(v);
-      }
-    }
-
-    // Do this after the SP calculation since it might bring in U4. Since this
-    // is after, we need to unshift.
-    if (variables.length) {
-      code.unshift(new VariableDeclaration("var", variables));
-    }
-
-    if (constants.length) {
-      code.unshift(new VariableDeclaration("const", constants));
+      //}
     }
 
     if (node.parameters) {
       var params = node.parameters;
-      for (var i = 0, j = params.length; i < j; i++) {
-        var p = params[i];
-        if (!p.isStackAllocated) {
-          continue;
-        }
-        var assn = new AssignmentExpression(p.getStackAccess(frame), "=", new Identifier(p.name));
+
+      if(node.params.length && node.params[0].name == 'thisPtr') {
+        var assn = new AssignmentExpression(
+          new Identifier('thisPtr'), '=',
+          new BinaryExpression("|", new Identifier('thisPtr'), literal(0))
+        );
         code.push(new ExpressionStatement(assn));
       }
+
+      for (var i = 0, j = params.length; i < j; i++) {
+        var p = params[i];
+        var ty = p.type;
+
+        if(ty.name == 'f32' || ty.name == 'f64') {
+          var assn = new AssignmentExpression(
+            new Identifier(p.name), '=',
+            new UnaryExpression("+", new Identifier(p.name))
+          );
+          code.push(new ExpressionStatement(assn));
+        }
+        else {
+          var assn = new AssignmentExpression(
+            new Identifier(p.name), '=',
+            new BinaryExpression("|", new Identifier(p.name), literal(0))
+          );
+          code.push(new ExpressionStatement(assn));
+        }
+
+        // I don't know what the following code is trying to do. Disable
+        // passing structs by value.
+        if(p.isStackAllocated) {
+          throw new Error("cannot pass stack-allocated objects yet");
+        }
+
+        //if (!p.isStackAllocated) {
+        //  continue;
+        //}
+        // var assn = new AssignmentExpression(p.getStackAccess(frame), "=", new Identifier(p.name));
+        // code.push(new ExpressionStatement(assn));
+      }
     }
+
+    for(v in frame.variables) {
+      var variable = frame.variables[v];
+      var ty = variable.type;
+      var decl;
+
+      // Don't process the `this` variable or any of the arguments
+      if(variable.name != 'this' &&
+         node.parameters.indexOf(variable) === -1) {
+        decl = new VariableDeclarator(new Identifier(variable.name),
+                                      new Literal(ty.defaultValue || 0));
+        if(ty.name == 'f32' || ty.name == 'f64') {
+          decl.init.forceDouble = true;
+        }
+
+        variables.push(decl);
+      }
+    }
+
+    if (variables.length) {
+      code.push(new VariableDeclaration("var", variables));
+    }
+
+    // if (constants.length) {
+    //   code.unshift(new VariableDeclaration("const", constants));
+    // }
 
     return code;
   }
@@ -1323,7 +1413,7 @@
   function createEpilogue(node, o) {
     assert(node.frame);
     var frame = node.frame;
-    var frameSize = frame.frameSizeInWords;
+    var frameSize = frame.frameSize;
     if (frameSize) {
       return [new ExpressionStatement(new AssignmentExpression(frame.realSP(), "+=", literal(frameSize)))];
     }
@@ -1350,9 +1440,9 @@
     o.scope = o.frame = this.frame;
 
     this.body = lowerList(this.body, o);
-    var prologue = createPrologue(this, o);
-    var epilogue = createEpilogue(this, o);
-    this.body = prologue.concat(this.body).concat(epilogue);
+    // var prologue = createPrologue(this, o);
+    // var epilogue = createEpilogue(this, o);
+    //this.body = prologue.concat(this.body).concat(epilogue);
 
     return this;
   };
@@ -1371,15 +1461,15 @@
         memcheckName = "<anonymous>";
       }
       this.frame.memcheckFnLoc = {name: memcheckName, line: this.loc.start.line, column: this.loc.start.column};
-      this.body.body.unshift(new ExpressionStatement(new CallExpression(this.frame.MEMCHECK_CALL_PUSH(),
-                                                                        [literal(memcheckName),
-                                                                         literal(o.name),
-                                                                         literal(this.loc.start.line),
-                                                                         literal(this.loc.start.column)])));
+      // this.body.body.unshift(new ExpressionStatement(new CallExpression(this.frame.MEMCHECK_CALL_PUSH(),
+      //                                                                   [literal(memcheckName),
+      //                                                                    literal(o.name),
+      //                                                                    literal(this.loc.start.line),
+      //                                                                    literal(this.loc.start.column)])));
 
-      if (this.body.body[this.body.body.length-1].type !== 'ReturnStatement') {
-         this.body.body.push(new ExpressionStatement(new CallExpression(this.frame.MEMCHECK_CALL_POP(), [])));
-      }
+      //if (this.body.body[this.body.body.length-1].type !== 'ReturnStatement') {
+        //this.body.body.push(new ExpressionStatement(new CallExpression(this.frame.MEMCHECK_CALL_POP(), [])));
+      //}
     }
     this.body.body = lowerList(this.body.body, o);
     var prologue = createPrologue(this, o);
@@ -1413,13 +1503,13 @@
 
   CatchClause.prototype.lower = function(o) {
     o = extend(o);
-    if(o.memcheck) {
-      var fnLoc = o.scope.frame.memcheckFnLoc;
-      this.body.body.unshift(new ExpressionStatement(new CallExpression(o.scope.frame.MEMCHECK_CALL_RESET(),
-                                                                        [literal(fnLoc.name),
-                                                                         literal(fnLoc.line),
-                                                                         literal(fnLoc.column)])));
-    }
+    // if(o.memcheck) {
+    //   var fnLoc = o.scope.frame.memcheckFnLoc;
+    //   this.body.body.unshift(new ExpressionStatement(new CallExpression(o.scope.frame.MEMCHECK_CALL_RESET(),
+    //                                                                     [literal(fnLoc.name),
+    //                                                                      literal(fnLoc.line),
+    //                                                                      literal(fnLoc.column)])));
+    // }
     return Node.prototype.lower.call(this, o);
   };
 
@@ -1454,7 +1544,7 @@
 
   ReturnStatement.prototype.lowerNode = function (o) {
     var scope = o.scope;
-    var frameSize = scope.frame.frameSizeInWords;
+    var frameSize = scope.frame.frameSize;
     if (frameSize || o.memcheck) {
       var arg = this.argument;
       var t = scope.freshTemp(arg.ty, arg.loc);
@@ -1487,6 +1577,13 @@
         }
       }
     }
+    // else if(ty instanceof PrimitiveType) {
+    //   if(ty.numeric) {
+    //     if(ty.integral) {
+
+    //     }
+    //   }
+    // }
   };
 
   UnaryExpression.prototype.lowerNode = function (o) {
@@ -1521,7 +1618,7 @@
   CastExpression.prototype.lowerNode = function (o) {
     // Treat user casts as forced casts so we don't emit warnings.
     var lowered = this.ty.convert(this.argument, (!!this.as || this.force), o.warn);
-    // Remember (coerce) the type for nested conversions.
+      // Remember (coerce) the type for nested conversions.
     lowered.ty = this.ty;
     return lowered;
   };
@@ -1532,58 +1629,58 @@
    * Driver
    */
 
-  function createRequire(name) {
-    return new CallExpression(new Identifier("require"), [literal(name)]);
-  }
+  // function createRequire(name) {
+  //   return new CallExpression(new Identifier("require"), [literal(name)]);
+  // }
 
-  function createModule(program, name, bare, loadInstead, memcheck) {
-    var body = [];
-    var cachedMEMORY = program.frame.cachedMEMORY;
-    if (cachedMEMORY) {
-      var mdecl;
-      // todo: causes all files named "memory.ljs" to be compiled with the memory
-      // var pointing at exports, probably want a better way of doing that...
-      if (name === "memory") {
-        mdecl = new VariableDeclarator(cachedMEMORY, new Identifier("exports"));
-      } else if (loadInstead) {
-        mdecl = new VariableDeclarator(cachedMEMORY, new SequenceExpression([
-          new CallExpression(new Identifier("load"), [literal("memory.js")]),
-          new Identifier("memory")]));
-      } else {
-        mdecl = new VariableDeclarator(cachedMEMORY, createRequire("memory"));
-      }
-      body.push(new VariableDeclaration("const", [mdecl]));
-      // todo: broken just like above
-      if (name !== "memory") {
-        assert (memcheck !== undefined);
-        body.push(new ExpressionStatement(
-          new CallExpression(new MemberExpression(cachedMEMORY, new Identifier("set_memcheck")),
-                             [literal(memcheck)])));
-      }
+  // function createModule(program, name, bare, loadInstead, memcheck) {
+  //   var body = [];
+  //   var cachedMEMORY = program.frame.cachedMEMORY;
+  //   if (cachedMEMORY) {
+  //     var mdecl;
+  //     // todo: causes all files named "memory.ljs" to be compiled with the memory
+  //     // var pointing at exports, probably want a better way of doing that...
+  //     if (name === "memory") {
+  //       mdecl = new VariableDeclarator(cachedMEMORY, new Identifier("exports"));
+  //     } else if (loadInstead) {
+  //       mdecl = new VariableDeclarator(cachedMEMORY, new SequenceExpression([
+  //         new CallExpression(new Identifier("load"), [literal("memory.js")]),
+  //         new Identifier("memory")]));
+  //     } else {
+  //       mdecl = new VariableDeclarator(cachedMEMORY, createRequire("memory"));
+  //     }
+  //     body.push(new VariableDeclaration("const", [mdecl]));
+  //     // todo: broken just like above
+  //     if (name !== "memory") {
+  //       assert (memcheck !== undefined);
+  //       body.push(new ExpressionStatement(
+  //         new CallExpression(new MemberExpression(cachedMEMORY, new Identifier("set_memcheck")),
+  //                            [literal(memcheck)])));
+  //     }
 
-    }
+  //   }
 
-    if (bare) {
-      program.body = body.concat(program.body);
-      return program;
-    }
+  //   if (bare) {
+  //     program.body = body.concat(program.body);
+  //     return program;
+  //   }
 
-    body = new BlockStatement(body.concat(program.body));
-    var mname = name.replace(/[^\w]/g, "_");
-    if (mname.match(/^[0-9]/)) {
-      mname = "_" + mname;
-    }
-    var exports = new Identifier("exports");
-    var module = new MemberExpression(new FunctionExpression(null, [exports], body), new Identifier("call"));
-    var moduleArgs = [
-      new ThisExpression(),
-      new ConditionalExpression(
-        new BinaryExpression("===", new UnaryExpression("typeof", exports), literal("undefined")),
-        new AssignmentExpression(new Identifier(mname), "=", new ObjectExpression([])),
-        exports)
-    ];
-    return new Program([new ExpressionStatement(new CallExpression(module, moduleArgs))]);
-  }
+  //   body = new BlockStatement(body.concat(program.body));
+  //   var mname = name.replace(/[^\w]/g, "_");
+  //   if (mname.match(/^[0-9]/)) {
+  //     mname = "_" + mname;
+  //   }
+  //   var exports = new Identifier("exports");
+  //   var module = new MemberExpression(new FunctionExpression(null, [exports], body), new Identifier("call"));
+  //   var moduleArgs = [
+  //     new ThisExpression(),
+  //     new ConditionalExpression(
+  //       new BinaryExpression("===", new UnaryExpression("typeof", exports), literal("undefined")),
+  //       new AssignmentExpression(new Identifier(mname), "=", new ObjectExpression([])),
+  //       exports)
+  //   ];
+  //   return new Program([new ExpressionStatement(new CallExpression(module, moduleArgs))]);
+  // }
 
   function warningOptions(options) {
     var warn = {};
@@ -1621,7 +1718,8 @@
     logger.info("Pass 4");
     node = node.lower(o);
 
-    return T.flatten(createModule(node, name, options.bare, options["load-instead"], options.memcheck));
+    //return T.flatten(createModule(node, name, options.bare, options["load-instead"], options.memcheck));
+    return T.flatten(node);
   }
 
   exports.compile = compile;

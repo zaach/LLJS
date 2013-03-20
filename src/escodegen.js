@@ -262,7 +262,7 @@
         return target;
     }
 
-    function generateNumber(value) {
+    function generateNumber(value, forceDouble) {
         var result, point, temp, exponent, pos;
 
         if (value !== value) {
@@ -277,6 +277,11 @@
         }
 
         result = '' + value;
+
+        if(forceDouble && result.indexOf('.') === -1) {
+            result += '.0';
+        }
+
         if (!renumber || result.length < 3) {
             return result;
         }
@@ -985,7 +990,7 @@
             }
 
             if (typeof expr.value === 'number') {
-                result = generateNumber(expr.value);
+                result = generateNumber(expr.value, expr.forceDouble);
                 break;
             }
 
@@ -1016,7 +1021,10 @@
 
         switch (stmt.type) {
         case Syntax.BlockStatement:
-            result = '{' + newline;
+            result = '';
+            if(!stmt.inline) {
+              result = '{' + newline;
+            }
 
             previousBase = base;
             base += indent;
@@ -1029,7 +1037,9 @@
             }
             base = previousBase;
 
-            result += addIndent('}');
+            if(!stmt.inline) {
+              result += addIndent('}');
+            }
             break;
 
         case Syntax.BreakStatement:

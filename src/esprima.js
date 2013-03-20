@@ -2262,6 +2262,8 @@
   }
 
   function parseTypeIdentifier(force) {
+    force = true;
+
     var m = mark();
     var token = lex();
     if (token.type !== Token.Identifier && token.type !== Token.Keyword) {

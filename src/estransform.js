@@ -20,7 +20,7 @@
 
     BlockStatement: {
       extends: "Statement",
-      fields:  ["@body"]
+      fields:  ["@body", "@inline"]
     },
 
     ExpressionStatement: {
@@ -250,7 +250,7 @@
 
     Literal: {
       extends: "Expression",
-      fields:  ["value"]
+      fields:  ["value", "forceDouble"]
     },
 
     Type: {

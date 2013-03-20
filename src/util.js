@@ -32,17 +32,32 @@
       op = ">>";
     }
 
+    //return expr;
     return new BinaryExpression(op, expr, new Literal(log2(ratio)), expr.loc);
   }
 
   function alignAddress(base, byteOffset, ty) {
     var address = realign(base, ty.align.size);
-    if (byteOffset !== 0) {
-      assert(isAlignedTo(byteOffset, ty.align.size), "unaligned byte offset " + byteOffset +
-             " for type " + quote(ty) + " with alignment " + ty.align.size);
-      var offset = byteOffset / ty.align.size;
-      address = new BinaryExpression("+", address, new Literal(offset), address.loc);
+
+    // assert(isAlignedTo(byteOffset, ty.align.size), "unaligned byte offset " + byteOffset +
+    //        " for type " + quote(ty) + " with alignment " + ty.align.size);
+
+    var offset = address;
+    if(byteOffset != 0) {
+      offset = new BinaryExpression("+",
+                                    address,
+                                    new Literal(byteOffset), address.loc);
     }
+
+    // asm.js requires a byte pointer to be shifted the appropriate
+    // amount to access typed arrays
+    address = new BinaryExpression(
+      ">>",
+      offset,
+      new Literal(log2(ty.align.size)),
+      address.loc
+    );
+
     // Remember (coerce) the type of the address for realign, but *do not* cast.
     address.ty = new Types.PointerType(ty);
     return address;
@@ -129,8 +144,8 @@
     return s;
   }
 
-  function cast(node, ty, force) {
-    if ((node.ty || force) && node.ty !== ty) {
+  function cast(node, ty, force, really) {
+    if ((node.ty || force) && (node.ty !== ty || really)) {
       node = new CastExpression(undefined, node, node.loc);
       node.force = force;
     }
