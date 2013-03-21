@@ -114,6 +114,16 @@
     }
   }
 
+  function forceType(expr) {
+    var type = expr.ty instanceof PointerType ? expr.ty.base : expr.ty;
+      
+    if(type.numeric && !type.integral) {
+      return cast(new UnaryExpression('+', expr), expr.ty);
+    }
+    else {
+      return cast(new BinaryExpression('|', expr, literal(0)), expr.ty);
+    }
+  }
 
   /**
    * Pass 1: resolve type synonyms and do some type sanity checking
@@ -1031,6 +1041,7 @@
   AssignmentExpression.prototype.transformNode = function (o) {
     var lty = this.left.ty;
     var rty = this.right.ty;
+    this.left.lvalue = true;
 
     if (!lty) {
       return;
@@ -1065,7 +1076,6 @@
       return cast(new CallExpression(mc, [left, right, literal(size)]), lty).transform(o);
     } else {
       this.right = cast(this.right, lty);
-
       return cast(this, lty);
     }
   };
@@ -1115,6 +1125,7 @@
       }
       return new MemberFunctionCall(obj, member);
     }
+
     this.structField = member;
     return cast(this, member.type);
   };
@@ -1298,8 +1309,8 @@
             this.base.align.size + "-byte aligned " + quote(Types.tystr(this, 0)), true);
     }
 
-    //return expr;
-    return realign(expr, this.base.align.size);
+    return expr;
+      //return realign(expr, this.base.align.size);
   };
 
   StructType.prototype.convert = function (expr) {
@@ -1320,21 +1331,16 @@
     var constants = [];
     var variables = [];
 
-    var frameSize = frame.frameSize;
-    if (frameSize) {
-      var allocStack = new AssignmentExpression(frame.realSP(), "-=", literal(frameSize));
-      var spDecl = new VariableDeclarator(frame.SP(), allocStack);
-      code.push(new VariableDeclaration("var", [spDecl]));
-    }
-
     var cachedLocals = frame.cachedLocals;
     for (local in cachedLocals) {
-      v = cachedLocals[local];
-      // if (v.init) {
-      //   constants.push(v);
-      // } else {
-        variables.push(v);
-      //}
+      v = frame.mangles[local];
+      var decl = new VariableDeclarator(new Identifier(v.name),
+                                        new Literal(v.type.defaultValue || 0));
+      if(v.type.numeric && !v.type.integral) {
+        decl.init.forceDouble = true;
+      }
+
+      variables.push(decl);
     }
 
     if (node.parameters) {
@@ -1391,7 +1397,7 @@
          node.parameters.indexOf(variable) === -1) {
         decl = new VariableDeclarator(new Identifier(variable.name),
                                       new Literal(ty.defaultValue || 0));
-        if(ty.name == 'f32' || ty.name == 'f64') {
+        if(ty.numeric && !ty.integral) {
           decl.init.forceDouble = true;
         }
 
@@ -1399,8 +1405,27 @@
       }
     }
 
-    if (variables.length) {
-      code.push(new VariableDeclaration("var", variables));
+    variables.push(new VariableDeclarator(new Identifier('$SP'), new Literal(0)));
+
+    if(variables.length) {
+        code.push(new VariableDeclaration("var", variables));
+    }
+
+    var frameSize = frame.frameSize;
+    if(frameSize) {
+      var allocStack = new AssignmentExpression(
+        frame.realSP(), "=", 
+        new BinaryExpression("-", forceType(frame.realSP()), literal(frameSize))
+      );
+
+      logger.push(allocStack);
+      allocStack.lower(o);
+      logger.pop();
+
+      code.push(new ExpressionStatement(allocStack));
+
+      var spDecl = new AssignmentExpression(frame.SP(), "=", forceType(frame.realSP()));
+      code.push(new ExpressionStatement(spDecl));
     }
 
     // if (constants.length) {
@@ -1412,10 +1437,25 @@
 
   function createEpilogue(node, o) {
     assert(node.frame);
+
     var frame = node.frame;
     var frameSize = frame.frameSize;
     if (frameSize) {
-      return [new ExpressionStatement(new AssignmentExpression(frame.realSP(), "+=", literal(frameSize)))];
+      var exprs = [
+        new ExpressionStatement(
+          new AssignmentExpression(
+            frame.realSP(), "=",
+            new BinaryExpression("+", forceType(frame.realSP()),
+                                 literal(frameSize))))
+      ];
+
+      var unifyRetType = new ReturnStatement(
+        new Literal(node.ty.returnType.integral ? 0 : 0.0)
+      );
+      unifyRetType.argument.forceDouble = !node.ty.returnType.integral;
+
+      exprs.push(unifyRetType);
+      return exprs;
     }
     return [];
   }
@@ -1551,7 +1591,12 @@
       var assn = new AssignmentExpression(t, "=", arg, arg.loc);
       var exprList = [assn];
       if(frameSize) {
-        var restoreStack = new AssignmentExpression(scope.frame.realSP(), "+=", literal(frameSize));
+        var restoreStack = new AssignmentExpression(
+            scope.frame.realSP(), "=", 
+            new BinaryExpression(
+                "+", forceType(scope.frame.realSP()), literal(frameSize)
+            )
+        );
         exprList.push(restoreStack);
       }
       if(o.memcheck) {
@@ -1594,25 +1639,35 @@
     }
 
     if (this.operator === "&") {
-      return arg.property;
+      // We already have an aligned lookup, just grab the pointer
+      // out of it though (see `alignAddress` in util.js)
+      return arg.property.left;
     }
   };
 
   MemberExpression.prototype.lowerNode = function (o) {
     var field = this.structField;
-    if (!field) {
+    if(!field) {
       return;
     }
 
-    var address;
+    var address, view;
     if (this.kind === "->") {
       address = this.object;
     } else {
+      // The identifer has already been aligned, so we just need to
+      // pick out the unaligned address
       assert(this.object instanceof MemberExpression);
-      address = this.object.property;
+      assert(this.object.property instanceof BinaryExpression);
+      address = this.object.property.left;
     }
 
-    return dereference(address, field.offset, field.type, o.scope, this.loc);
+    var def = dereference(address, field.offset, field.type, o.scope, this.loc);
+
+    if(!this.lvalue) {
+      return forceType(def);
+    }
+    return def;
   };
 
   CastExpression.prototype.lowerNode = function (o) {
@@ -1622,8 +1677,6 @@
     lowered.ty = this.ty;
     return lowered;
   };
-
-
 
   /**
    * Driver

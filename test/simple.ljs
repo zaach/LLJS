@@ -9,7 +9,7 @@ struct Point {
 }
 
 function double square(double x, double y) {
-  return ((x + y) * 2 + -2);
+  return x*x + y*y;
 }
 
 function double main() {

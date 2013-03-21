@@ -37,23 +37,23 @@
   }
 
   function alignAddress(base, byteOffset, ty) {
-    var address = realign(base, ty.align.size);
+    //var address = realign(base, ty.align.size);
+    var address = base;
 
-    // assert(isAlignedTo(byteOffset, ty.align.size), "unaligned byte offset " + byteOffset +
-    //        " for type " + quote(ty) + " with alignment " + ty.align.size);
-
-    var offset = address;
     if(byteOffset != 0) {
-      offset = new BinaryExpression("+",
-                                    address,
-                                    new Literal(byteOffset), address.loc);
+      assert(isAlignedTo(byteOffset, ty.align.size), "unaligned byte offset " + byteOffset +
+             " for type " + quote(ty) + " with alignment " + ty.align.size);
+      address = new BinaryExpression("+",
+                                     address,
+                                     new Literal(byteOffset), address.loc);
     }
 
     // asm.js requires a byte pointer to be shifted the appropriate
     // amount to access typed arrays
+   
     address = new BinaryExpression(
       ">>",
-      offset,
+      address,
       new Literal(log2(ty.align.size)),
       address.loc
     );
@@ -67,6 +67,7 @@
     assert(scope);
     address = copy(address, address.ty);
     address = alignAddress(address, byteOffset, ty);
+
     var expr;
     if (ty instanceof Types.ArrayType) {
       expr = address;

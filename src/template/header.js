@@ -8,9 +8,9 @@ var buffer = new ArrayBuffer(SIZE);
 var asm = (function (global, env, buffer) {
     "use asm";
 
-    var stackSize = env.STACK_SIZE;
-    var heapSize = env.HEAP_SIZE;
-    var totalSize = env.TOTAL_SIZE;
+    var stackSize = env.STACK_SIZE|0;
+    var heapSize = env.HEAP_SIZE|0;
+    var totalSize = env.TOTAL_SIZE|0;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
@@ -20,6 +20,3 @@ var asm = (function (global, env, buffer) {
     var I4 = new global.Int32Array(buffer);
     var F4 = new global.Float32Array(buffer);
     var F8 = new global.Float64Array(buffer);
-
-    U4[0] = 4;
-    U4[1] = totalSize;
