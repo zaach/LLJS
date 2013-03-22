@@ -15,5 +15,7 @@ int main() {
         }
     }
 
-    printf("%d", s);
+    // Needed so that gcc doesn't remove the code as dead
+    printf("%d", f);
+    return 0;
 }
