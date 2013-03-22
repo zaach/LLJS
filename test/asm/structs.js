@@ -40,12 +40,16 @@ function square(x, y) {
   return +(x * x + +add1(~~(y * y)) + +~~4.4);
 }
 function main() {
-  var _ = 0.0, p = 0, $SP = 0;
-  U4[1] = (U4[1] | 0) - 16;
+  var _ = 0.0, p1 = 0, p2 = 0, p3 = 0, p4 = 0, p5 = 0, $SP = 0;
+  U4[1] = (U4[1] | 0) - 80;
   $SP = U4[1] | 0;
   (Point$Point(($SP), 1.2, 3.4), F8[($SP) >> 3]);
-  return _ = +square(+F8[(($SP)) >> 3], +F8[(($SP)) + 8 >> 3]), U4[1] = (U4[1] | 0) + 16, _;
-  U4[1] = (U4[1] | 0) + 16;
+  (Point$Point(($SP) + 16, 1.2, 3.4), F8[($SP) + 16 >> 3]);
+  (Point$Point(($SP) + 32, 1.2, 3.4), F8[($SP) + 32 >> 3]);
+  (Point$Point(($SP) + 48, 1.2, 3.4), F8[($SP) + 48 >> 3]);
+  (Point$Point(($SP) + 64, 1.2, +5), F8[($SP) + 64 >> 3]);
+  return _ = +square(+F8[(($SP)) >> 3], +F8[(($SP) + 64) + 8 >> 3]), U4[1] = (U4[1] | 0) + 80, _;
+  U4[1] = (U4[1] | 0) + 80;
   return 0.0;
 }
     function _main() {
@@ -56,10 +60,19 @@ function main() {
 
     return { main: _main };
 
-})(this,
+})({ Uint8Array: Uint8Array,
+     Int8Array: Int8Array,
+     Uint16Array: Uint16Array,
+     Int16Array: Int16Array,
+     Uint32Array: Uint32Array,
+     Int32Array: Int32Array,
+     Float32Array: Float32Array,
+     Float64Array: Float64Array },
    { HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
      TOTAL_SIZE: SIZE },
    buffer);
 
-print(asm.main());
+var display = ((typeof console !== 'undefined' && console.log) || print);
+
+display(asm.main());

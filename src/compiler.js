@@ -926,6 +926,10 @@
         return cast(this, Types.i32ty, true);
       }
 
+      // Force the operands to be casted (asm.js is strict about this)
+      this.left = cast(this.left, Types.f64ty, true);
+      this.right = cast(this.right, Types.f64ty, true);
+
       ty = Types.f64ty;
     }
 
@@ -1267,6 +1271,8 @@
       check(lsigned === rsigned, errorPrefix + "sign", true);
     }
 
+    
+
     // Do we need to truncate? Bitwise operators automatically truncate to 32
     // bits in JavaScript so if the width is 32, we don't need to do manual
     // truncation.
@@ -1279,8 +1285,17 @@
         conversion = new BinaryExpression(">>", conversion, literal(shift), loc);
       }
     } else {
-      conversion = new BinaryExpression((lsigned ? "|" : ">>>"), expr,
-                                        literal(0), loc);
+      if(rty && !rty.integral) {
+        conversion = new UnaryExpression('~~', expr);
+      }
+      else if(lsigned) {
+        conversion = new BinaryExpression("|", expr,
+                                          literal(0), loc);
+      }
+      else {
+        conversion = new BinaryExpression(">>>", expr,
+                                          literal(0), loc);
+      }
     }
 
     return conversion;

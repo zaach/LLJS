@@ -20,14 +20,6 @@ var asm = (function (global, env, buffer) {
     var I4 = new global.Int32Array(buffer);
     var F4 = new global.Float32Array(buffer);
     var F8 = new global.Float64Array(buffer);
-  function Point$Point(thisPtr, x, y) {
-    thisPtr = thisPtr | 0;
-    x = +x;
-    y = +y;
-    var $SP = 0;
-    F8[(thisPtr) >> 3] = x;
-    F8[(thisPtr) + 8 >> 3] = y;
-  }
 function add1(x) {
   x = x | 0;
   var $SP = 0;
@@ -40,13 +32,8 @@ function square(x, y) {
   return +(x * x + +add1(~~(y * y)) + +~~4.4);
 }
 function main() {
-  var _ = 0.0, p = 0, $SP = 0;
-  U4[1] = (U4[1] | 0) - 16;
-  $SP = U4[1] | 0;
-  (Point$Point(($SP), 1.2, 3.4), F8[($SP) >> 3]);
-  return _ = +square(+F8[(($SP)) >> 3], +F8[(($SP)) + 8 >> 3]), U4[1] = (U4[1] | 0) + 16, _;
-  U4[1] = (U4[1] | 0) + 16;
-  return 0.0;
+  var $SP = 0;
+  return +square(2.3, 4.5);
 }
     function _main() {
         U4[0] = 4;
@@ -56,10 +43,19 @@ function main() {
 
     return { main: _main };
 
-})(this,
+})({ Uint8Array: Uint8Array,
+     Int8Array: Int8Array,
+     Uint16Array: Uint16Array,
+     Int16Array: Int16Array,
+     Uint32Array: Uint32Array,
+     Int32Array: Int32Array,
+     Float32Array: Float32Array,
+     Float64Array: Float64Array },
    { HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
      TOTAL_SIZE: SIZE },
    buffer);
 
-print(asm.main());
+var display = ((typeof console !== 'undefined' && console.log) || print);
+
+display(asm.main());
