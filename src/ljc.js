@@ -203,9 +203,9 @@
         if (options["emit-ast"]) {
           code = node;
         } else {
-          code = snarf('./src/template/header.js');
+          code = snarf(__dirname + '/template/header.js');
           code += escodegen.generate(node, { base: "", indent: "  ", comment: true });
-          code += snarf('./src/template/footer.js');
+          code += snarf(__dirname + '/template/footer.js');
         }
       }
     } catch (e) {
