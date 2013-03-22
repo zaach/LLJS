@@ -23,6 +23,13 @@ For users of SpiderMonkey `js` shell, the compiler can be invoked with:
 
 in the src/ directory.
 
+asm.js
+======
+
+This is an experimental version of LLJS that compiles to asm.js. Not everything is working yet, and dynamic allocation isn't implemented yet, but it will be soon.
+
+To run the asm.js tests, run `make asmtest`. To run the benchmark, run `make asmbench`. You can see the working examples in the `test/asm` folder;
+
 Memcheck
 ========
 
