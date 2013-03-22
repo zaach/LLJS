@@ -63,7 +63,7 @@ node: $(nodefiles)
 sm: $(smfiles)
 
 asmtest: $(asmtestfiles) $(addprefix asmtest_, $(asmtestfiles))
-asmbench: test/asm/bench.js
+asmbench: test/asm/bench2.js
 	@echo "======================"
 	@echo "Using v8..."
 	$(V8_ENGINE) $<

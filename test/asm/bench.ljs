@@ -3,16 +3,14 @@ extern start;
 extern end;
 extern print;
 
-function void main() {
-  let int N = 20000;
-  let int M = 7000;
+function void run() {
+  let int N = 200;
+  let int M = 700;
   let uint f = 0;
   let u16 s = 0;
 
   let int t;
   let int i;
-
-  start();
 
   for(t = 0; t < M; t = t + 1) {
     for(i = 0; i < N; i = i + 1) {
@@ -22,6 +20,16 @@ function void main() {
       s = s + u16(f) * u16(f) % 256;
     }
   }
-  
+
+}
+
+function void main() {
+  let int i;
+  start();  
+
+  for(i = 0; i < 1000; i++) {
+    run();
+  }
+
   print(int(end()));
 }

@@ -26,7 +26,7 @@ in the src/ directory.
 asm.js
 ======
 
-This is an experimental version of LLJS that compiles to asm.js. Not everything is working yet, and dynamic allocation isn't implemented yet, but it will be soon.
+This is an experimental version of LLJS that compiles to asm.js. Not everything is working yet, and dynamic allocation isn't implemented yet, but it will be soon. See [this blog post](http://jlongster.com/Compiling-LLJS-to-asm.js,-Now-Available-).
 
 To run the asm.js tests, run `make asmtest`. To run the benchmark, run `make asmbench`. You can see the working examples in the `test/asm` folder;
 

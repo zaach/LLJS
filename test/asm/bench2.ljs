@@ -1,0 +1,33 @@
+
+extern start, end, print;
+
+function void run() {
+  let int N = 16384;
+  let int M = 200;
+  let int final = 0;
+  let u8 buf[16384];
+  let int t, i;
+
+  for(t = 0; t < M; t = t + 1) {
+    for(i = 0; i < N; i = i + 1) {
+      buf[i] = (i + final) % 256;
+    }
+
+    for(i = 0; i < N; i = i + 1) {
+       final = final + buf[i] & 1;
+    }
+
+    final = final % 1000;
+  }
+}
+
+function void main() {
+  let int i;
+  start();  
+
+  for(i = 0; i < 1000; i++) {
+    run();
+  }
+
+  print(int(end()));
+}

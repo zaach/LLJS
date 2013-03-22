@@ -1,7 +1,7 @@
 
-int main() {
-    int N = 20000;
-    int M = 7000;
+int run() {
+    int N = 200;
+    int M = 700;
     unsigned int f = 0;
     unsigned short s = 0;
     int i, t;
@@ -13,6 +13,17 @@ int main() {
             if(i % 4 == 0) f = f + i * (i % 8 == 0 ? 1 : -1);
             s = s + f*f % 256;
         }
+    }
+
+    return f;
+}
+
+int main() {
+    unsigned int f;
+    int i;
+
+    for(i = 0; i < 1000; i++) {
+        f = run();
     }
 
     // Needed so that gcc doesn't remove the code as dead
