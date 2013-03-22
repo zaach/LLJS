@@ -1,4 +1,31 @@
 
-function double main() {
-  return 2.2 * 3.4;
+extern assertEqual;
+
+function void main() {
+  assertEqual(sizeof(u8), 1);
+  assertEqual(sizeof(i8), 1);
+  assertEqual(sizeof(u16), 2);
+  assertEqual(sizeof(i16), 2);
+  assertEqual(sizeof(u32), 4);
+  assertEqual(sizeof(i32), 4);
+  assertEqual(sizeof(float), 4);
+  assertEqual(sizeof(double), 8);
+  
+  assertEqual(u8(-1), 255);
+  assertEqual(i8(-1), -1);
+  assertEqual(u16(-1), 65535);
+  assertEqual(i16(-1), -1);
+  assertEqual(u32(-1), 4294967295);
+  assertEqual(i32(-1), -1);
+
+  let int x = 8;
+  let int y = 6;
+  assertEqual(x + y, 14);
+  assertEqual(x - y, 2);
+  assertEqual(x / y, 1);
+  assertEqual(x * y, 48);
+
+  let double z = 5.1;
+  let double w = 5.2;
+  assertEqual(z + w, 10.3);
 }

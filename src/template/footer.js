@@ -1,11 +1,6 @@
 
-    function _main() {
-        U4[0] = 4;
-        U4[1] = totalSize;
-        return +main();
-    }
 
-    return { main: _main };
+    return { main: main };
 
 })({ Uint8Array: Uint8Array,
      Int8Array: Int8Array,
@@ -14,12 +9,25 @@
      Uint32Array: Uint32Array,
      Int32Array: Int32Array,
      Float32Array: Float32Array,
-     Float64Array: Float64Array },
+     Float64Array: Float64Array,
+     Math: Math },
    { HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
-     TOTAL_SIZE: SIZE },
+     TOTAL_SIZE: SIZE,
+     assertEqual: assertEqual,
+     print: _print },
    buffer);
 
-var display = ((typeof console !== 'undefined' && console.log) || print);
 
-display(asm.main());
+function assertEqual(val1, val2) {
+    if(val1 !== val2) {
+        throw new Error(val1 + ' does not equal ' + val2);
+    }
+}
+
+function _print(/* arg1, arg2, ..., argN */) {
+    var func = ((typeof console !== 'undefined' && console.log) || print);
+    func.apply(null, arguments);
+}
+
+_print(asm.main());

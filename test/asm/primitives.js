@@ -1,4 +1,8 @@
 
+if(!Math.imul) {
+    Math.imul = function(x, y) { return x * y; };
+}
+
 var MB = 1024 * 1024;
 var SIZE = 256 * MB;
 var STACK_SIZE = 2 * MB;
@@ -11,6 +15,8 @@ var asm = (function (global, env, buffer) {
     var stackSize = env.STACK_SIZE|0;
     var heapSize = env.HEAP_SIZE|0;
     var totalSize = env.TOTAL_SIZE|0;
+    var assertEqual = env.assertEqual;
+    var print = env.print;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
@@ -20,17 +26,53 @@ var asm = (function (global, env, buffer) {
     var I4 = new global.Int32Array(buffer);
     var F4 = new global.Float32Array(buffer);
     var F8 = new global.Float64Array(buffer);
-function main() {
-  var $SP = 0;
-  return +(2.2 * 3.4);
-}
-    function _main() {
-        U4[0] = 4;
-        U4[1] = totalSize;
-        return +main();
-    }
 
-    return { main: _main };
+    var acos = global.Math.acos;
+    var asin = global.Math.asin;
+    var atan = global.Math.atan;
+    var cos = global.Math.cos;
+    var sin = global.Math.sin;
+    var tan = global.Math.tan;
+    var ceil = global.Math.ceil;
+    var floor = global.Math.floor;
+    var exp = global.Math.exp;
+    var log = global.Math.log;
+    var sqrt = global.Math.sqrt;
+    var abs = global.Math.abs;
+    var atan2 = global.Math.atan2;
+    var pow = global.Math.pow;
+    var imul = global.Math.imul;
+
+function main() {
+  var x = 0, y = 0, z = 0.0, w = 0.0, $SP = 0;
+  U4[1] = totalSize;
+  U4[0] = 4;
+  assertEqual(1, 1);
+  assertEqual(1, 1);
+  assertEqual(2, 2);
+  assertEqual(2, 2);
+  assertEqual(4, 4);
+  assertEqual(4, 4);
+  assertEqual(4, 4);
+  assertEqual(8, 8);
+  assertEqual(-1 & 255, 255);
+  assertEqual(-1, -1);
+  assertEqual(-1 & 65535, 65535);
+  assertEqual(-1, -1);
+  assertEqual(-1 >>> 0, 4294967295);
+  assertEqual(-1, -1);
+  x = 8;
+  y = 6;
+  assertEqual((x | 0) + (y | 0) | 0, 14);
+  assertEqual((x | 0) - (y | 0) | 0, 2);
+  assertEqual((x | 0) / (y | 0) | 0, 1);
+  assertEqual(imul(x, y), 48);
+  z = 5.1;
+  w = 5.2;
+  assertEqual(z + w, 10.3);
+}
+
+    return { main: main };
 
 })({ Uint8Array: Uint8Array,
      Int8Array: Int8Array,
@@ -39,12 +81,25 @@ function main() {
      Uint32Array: Uint32Array,
      Int32Array: Int32Array,
      Float32Array: Float32Array,
-     Float64Array: Float64Array },
+     Float64Array: Float64Array,
+     Math: Math },
    { HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
-     TOTAL_SIZE: SIZE },
+     TOTAL_SIZE: SIZE,
+     assertEqual: assertEqual,
+     print: _print },
    buffer);
 
-var display = ((typeof console !== 'undefined' && console.log) || print);
 
-display(asm.main());
+function assertEqual(val1, val2) {
+    if(val1 !== val2) {
+        throw new Error(val1 + ' does not equal ' + val2);
+    }
+}
+
+function _print(/* arg1, arg2, ..., argN */) {
+    var func = ((typeof console !== 'undefined' && console.log) || print);
+    func.apply(null, arguments);
+}
+
+_print(asm.main());

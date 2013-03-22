@@ -72,6 +72,7 @@
   const alignTo = util.alignTo;
   const dereference = util.dereference;
   const realign = util.realign;
+  const forceType = util.forceType;
 
   /**
    * Import scopes.
@@ -111,17 +112,6 @@
         e.logged = true;
         throw e;
       }
-    }
-  }
-
-  function forceType(expr) {
-    var type = expr.ty instanceof PointerType ? expr.ty.base : expr.ty;
-      
-    if(type.numeric && !type.integral) {
-      return cast(new UnaryExpression('+', expr), expr.ty);
-    }
-    else {
-      return cast(new BinaryExpression('|', expr, literal(0)), expr.ty);
     }
   }
 
@@ -414,10 +404,10 @@
     // scope.addVariable(new Variable("require"), true);
     // scope.addVariable(new Variable("load"), true);
 
-    scope.addVariable(scope.freshVariable("malloc", Types.mallocTy), true);
-    scope.addVariable(scope.freshVariable("free", Types.mallocTy), true);
-    scope.addVariable(scope.freshVariable("mempy", Types.mallocTy), true);
-    scope.addVariable(scope.freshVariable("memset", Types.mallocTy), true);
+    // scope.addVariable(scope.freshVariable("malloc", Types.mallocTy), true);
+    // scope.addVariable(scope.freshVariable("free", Types.mallocTy), true);
+    // scope.addVariable(scope.freshVariable("mempy", Types.mallocTy), true);
+    // scope.addVariable(scope.freshVariable("memset", Types.mallocTy), true);
 
     scope.addVariable(scope.freshVariable("U1", new Types.ArrayType(Types.u8ty)), true);
     scope.addVariable(scope.freshVariable("I1", new Types.ArrayType(Types.i8ty)), true);
@@ -427,14 +417,6 @@
     scope.addVariable(scope.freshVariable("I4", new Types.ArrayType(Types.i32ty)), true);
     scope.addVariable(scope.freshVariable("F4", new Types.ArrayType(Types.f32ty)), true);
     scope.addVariable(scope.freshVariable("F8", new Types.ArrayType(Types.f64ty)), true);
-
-    scope.addVariable(
-        scope.freshVariable(
-            "print",
-            new Types.ArrowType([Types.u32ty], Types.voidTy)
-        ),
-        true
-    );
 
     logger.push(this);
     scanList(this.body, o);
@@ -577,7 +559,12 @@
    */
 
   PrimitiveType.prototype.assignableFrom = function (other) {
-    if (other instanceof PrimitiveType || other instanceof PointerType) {
+    if(this === Types.voidTy) {
+      return other === Types.voidTy;
+    }
+      
+    if (other instanceof PrimitiveType ||
+        other instanceof PointerType) {
       return true;
     }
     return false;
@@ -693,8 +680,7 @@
   FunctionDeclaration.prototype.transform = function (o) {
     o = extend(o);
     o.scope = this.frame;
-
-
+      
     assert(this.body instanceof BlockStatement);
     this.body.body = compileList(this.body.body, o);
     this.frame.close();
@@ -771,11 +757,20 @@
     }
   };
 
-  VariableDeclaration.prototype.transformNode = function (o) {
+  VariableDeclaration.prototype.transform = function (o) {
     if (this.kind === "extern") {
       return null;
     }
 
+    var decls = this.declarations;
+    for(var i=0; i<decls.length; i++) {
+      decls[i] = decls[i].transform(o);
+    }
+
+    return this.transformNode(o);
+  };
+
+  VariableDeclaration.prototype.transformNode = function (o) {
     // We shouldn't have any variable declarations here, they are
     // created in the prologue (asm.js requirement). Convert these to
     // AssignmentExpression-s if they have an initializer.
@@ -923,13 +918,22 @@
             wantsToBe.size > Types.i32ty.size)) {
         // Force a CastExpression here so we convert it during lowering
         // without warnings.
+
+        if(op == '*') {
+          // Multiplication of integers is special in asm.js, and
+          // requires a call to `imul` instead. See
+          // http://asmjs.org/spec/latest/#intish
+          return new CallExpression(new Identifier('imul'), [this.left, this.right]);
+        }
+
+        this.left = cast(this.left, lty, true, true);
+        this.right = cast(this.right, rty, true, true);
         return cast(this, Types.i32ty, true);
       }
 
       // Force the operands to be casted (asm.js is strict about this)
       this.left = cast(this.left, Types.f64ty, true);
       this.right = cast(this.right, Types.f64ty, true);
-
       ty = Types.f64ty;
     }
 
@@ -1271,7 +1275,6 @@
       check(lsigned === rsigned, errorPrefix + "sign", true);
     }
 
-    
 
     // Do we need to truncate? Bitwise operators automatically truncate to 32
     // bits in JavaScript so if the width is 32, we don't need to do manual
@@ -1324,8 +1327,9 @@
             this.base.align.size + "-byte aligned " + quote(Types.tystr(this, 0)), true);
     }
 
+    // TODO: do we still need to realign (asm.js)?
     return expr;
-      //return realign(expr, this.base.align.size);
+    //return realign(expr, this.base.align.size);
   };
 
   StructType.prototype.convert = function (expr) {
@@ -1335,6 +1339,27 @@
   ArrowType.prototype.convert = function (expr) {
     return expr;
   };
+
+  function addMainInitializers(node, o) {
+    // Add the stack and heap initializers to the main function
+    return [
+      new ExpressionStatement(
+        new AssignmentExpression(
+          new MemberExpression(o.scope.getView(Types.u32ty), literal(1), true),
+          '=',
+          new Identifier('totalSize')
+        )
+      ),
+
+      new ExpressionStatement(
+        new AssignmentExpression(
+          new MemberExpression(o.scope.getView(Types.u32ty), literal(0), true),
+          '=',
+          literal(4)
+        )
+      )
+    ];
+  }
 
   function createPrologue(node, o) {
     assert(node.frame);
@@ -1426,6 +1451,10 @@
         code.push(new VariableDeclaration("var", variables));
     }
 
+    if(node.id.name == 'main') {
+      code = code.concat(addMainInitializers(node, o));
+    }
+
     var frameSize = frame.frameSize;
     if(frameSize) {
       var allocStack = new AssignmentExpression(
@@ -1443,9 +1472,6 @@
       code.push(new ExpressionStatement(spDecl));
     }
 
-    // if (constants.length) {
-    //   code.unshift(new VariableDeclaration("const", constants));
-    // }
 
     return code;
   }
@@ -1608,8 +1634,10 @@
       if(frameSize) {
         var restoreStack = new AssignmentExpression(
             scope.frame.realSP(), "=", 
-            new BinaryExpression(
-                "+", forceType(scope.frame.realSP()), literal(frameSize)
+            forceType(
+                cast(new BinaryExpression(
+                    "+", forceType(scope.frame.realSP()), literal(frameSize)
+                ), Types.u32ty)
             )
         );
         exprList.push(restoreStack);
@@ -1637,13 +1665,6 @@
         }
       }
     }
-    // else if(ty instanceof PrimitiveType) {
-    //   if(ty.numeric) {
-    //     if(ty.integral) {
-
-    //     }
-    //   }
-    // }
   };
 
   UnaryExpression.prototype.lowerNode = function (o) {

@@ -13,7 +13,7 @@
   const Literal = T.Literal;
   const MemberExpression = T.MemberExpression;
   const SequenceExpression = T.SequenceExpression;
-
+  const UnaryExpression = T.UnaryExpression;
 
   function realign(expr, lalign) {
     assert(expr.ty instanceof Types.PointerType);
@@ -43,9 +43,12 @@
     if(byteOffset != 0) {
       assert(isAlignedTo(byteOffset, ty.align.size), "unaligned byte offset " + byteOffset +
              " for type " + quote(ty) + " with alignment " + ty.align.size);
-      address = new BinaryExpression("+",
-                                     address,
-                                     new Literal(byteOffset), address.loc);
+      address = forceType(
+        cast(new BinaryExpression("+",
+                                  address,
+                                  new Literal(byteOffset), address.loc),
+             Types.i32ty)
+      );
     }
 
     // asm.js requires a byte pointer to be shifted the appropriate
@@ -79,6 +82,16 @@
     return expr;
   }
 
+  function forceType(expr) {
+    var type = expr.ty instanceof Types.PointerType ? expr.ty.base : expr.ty;
+      
+    if(type.numeric && !type.integral) {
+      return cast(new UnaryExpression('+', expr), expr.ty);
+    }
+    else {
+      return cast(new BinaryExpression('|', expr, new Literal(0)), expr.ty);
+    }
+  }
 
   function isInteger(x) {
     return (parseInt(x) | 0) === Number(x);
@@ -555,5 +568,6 @@
   exports.alignTo = alignTo;
   exports.dereference = dereference;
   exports.realign = realign;
+  exports.forceType = forceType;
 
 }(typeof exports === 'undefined' ? (util = {}) : exports));

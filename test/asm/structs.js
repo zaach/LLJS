@@ -1,4 +1,8 @@
 
+if(!Math.imul) {
+    Math.imul = function(x, y) { return x * y; };
+}
+
 var MB = 1024 * 1024;
 var SIZE = 256 * MB;
 var STACK_SIZE = 2 * MB;
@@ -11,6 +15,8 @@ var asm = (function (global, env, buffer) {
     var stackSize = env.STACK_SIZE|0;
     var heapSize = env.HEAP_SIZE|0;
     var totalSize = env.TOTAL_SIZE|0;
+    var assertEqual = env.assertEqual;
+    var print = env.print;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
@@ -20,45 +26,49 @@ var asm = (function (global, env, buffer) {
     var I4 = new global.Int32Array(buffer);
     var F4 = new global.Float32Array(buffer);
     var F8 = new global.Float64Array(buffer);
+
+    var acos = global.Math.acos;
+    var asin = global.Math.asin;
+    var atan = global.Math.atan;
+    var cos = global.Math.cos;
+    var sin = global.Math.sin;
+    var tan = global.Math.tan;
+    var ceil = global.Math.ceil;
+    var floor = global.Math.floor;
+    var exp = global.Math.exp;
+    var log = global.Math.log;
+    var sqrt = global.Math.sqrt;
+    var abs = global.Math.abs;
+    var atan2 = global.Math.atan2;
+    var pow = global.Math.pow;
+    var imul = global.Math.imul;
+
   function Point$Point(thisPtr, x, y) {
     thisPtr = thisPtr | 0;
     x = +x;
     y = +y;
     var $SP = 0;
     F8[(thisPtr) >> 3] = x;
-    F8[(thisPtr) + 8 >> 3] = y;
+    F8[((thisPtr) + 8 | 0) >> 3] = y;
   }
-function add1(x) {
-  x = x | 0;
-  var $SP = 0;
-  return x + 1 | 0 | 0;
-}
-function square(x, y) {
-  x = +x;
-  y = +y;
-  var $SP = 0;
-  return +(x * x + +add1(~~(y * y)) + +~~4.4);
-}
 function main() {
   var _ = 0.0, p1 = 0, p2 = 0, p3 = 0, p4 = 0, p5 = 0, $SP = 0;
+  U4[1] = totalSize;
+  U4[0] = 4;
   U4[1] = (U4[1] | 0) - 80;
   $SP = U4[1] | 0;
   (Point$Point(($SP), 1.2, 3.4), F8[($SP) >> 3]);
-  (Point$Point(($SP) + 16, 1.2, 3.4), F8[($SP) + 16 >> 3]);
-  (Point$Point(($SP) + 32, 1.2, 3.4), F8[($SP) + 32 >> 3]);
-  (Point$Point(($SP) + 48, 1.2, 3.4), F8[($SP) + 48 >> 3]);
-  (Point$Point(($SP) + 64, 1.2, +5), F8[($SP) + 64 >> 3]);
-  return _ = +square(+F8[(($SP)) >> 3], +F8[(($SP) + 64) + 8 >> 3]), U4[1] = (U4[1] | 0) + 80, _;
+  (Point$Point(($SP) + 16 | 0, 1.3, 3.5), F8[(($SP) + 16 | 0) >> 3]);
+  (Point$Point(($SP) + 32 | 0, 1.4, 3.6), F8[(($SP) + 32 | 0) >> 3]);
+  (Point$Point(($SP) + 48 | 0, 1.5, 3.7), F8[(($SP) + 48 | 0) >> 3]);
+  (Point$Point(($SP) + 64 | 0, 1.6, 3.8), F8[(($SP) + 64 | 0) >> 3]);
+  assertEqual(+F8[(($SP) + 64 | 0) >> 3], 1.6);
+  return _ = +(+F8[(($SP) + 64 | 0) >> 3]), U4[1] = (U4[1] | 0) + 80 | 0, _;
   U4[1] = (U4[1] | 0) + 80;
   return 0.0;
 }
-    function _main() {
-        U4[0] = 4;
-        U4[1] = totalSize;
-        return +main();
-    }
 
-    return { main: _main };
+    return { main: main };
 
 })({ Uint8Array: Uint8Array,
      Int8Array: Int8Array,
@@ -67,12 +77,25 @@ function main() {
      Uint32Array: Uint32Array,
      Int32Array: Int32Array,
      Float32Array: Float32Array,
-     Float64Array: Float64Array },
+     Float64Array: Float64Array,
+     Math: Math },
    { HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
-     TOTAL_SIZE: SIZE },
+     TOTAL_SIZE: SIZE,
+     assertEqual: assertEqual,
+     print: _print },
    buffer);
 
-var display = ((typeof console !== 'undefined' && console.log) || print);
 
-display(asm.main());
+function assertEqual(val1, val2) {
+    if(val1 !== val2) {
+        throw new Error(val1 + ' does not equal ' + val2);
+    }
+}
+
+function _print(/* arg1, arg2, ..., argN */) {
+    var func = ((typeof console !== 'undefined' && console.log) || print);
+    func.apply(null, arguments);
+}
+
+_print(asm.main());

@@ -2262,8 +2262,6 @@
   }
 
   function parseTypeIdentifier(force) {
-    force = true;
-
     var m = mark();
     var token = lex();
     if (token.type !== Token.Identifier && token.type !== Token.Keyword) {
@@ -2357,7 +2355,9 @@
 
     expectKeyword(kind);
 
-    declarations = parseVariableDeclarationList(kind, undefined, parseTypeIdentifier());
+    declarations = parseVariableDeclarationList(
+        kind, undefined, parseTypeIdentifier(kind != 'extern')
+    );
 
     consumeSemicolon();
 
@@ -2481,7 +2481,7 @@
 
   function parseForVariableDeclaration() {
     var token = lex();
-    var typeIdentifier = parseTypeIdentifier();
+    var typeIdentifier = parseTypeIdentifier(true);
     var result = {
       type: Syntax.VariableDeclaration,
       declarations: parseVariableDeclarationList(undefined, undefined, typeIdentifier),
@@ -3129,7 +3129,7 @@
                                                            parseStructType()));
       } else {
         list.push.apply(list, parseVariableDeclarationList(undefined, true,
-                                                           parseTypeIdentifier()));
+                                                           parseTypeIdentifier(true)));
       }
       members.push.apply(members, list.map(function (x) {
         return {
