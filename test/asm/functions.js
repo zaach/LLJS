@@ -52,13 +52,14 @@ function square(x, y) {
   x = +x;
   y = +y;
   var $SP = 0;
-  return +(x * x + +add1(~~(y * y)) + +~~4.4);
+  // add1 takes an integer, so it rounds the result
+  return +(x * x + +(add1(~~(y * y)) | 0));
 }
 function main() {
   var $SP = 0;
   U4[1] = totalSize;
   U4[0] = 4;
-  return +square(2.3, 4.5);
+  assertEqual(square(2.3, 4.5), 26.29);
 }
 
     return { main: main };
@@ -81,9 +82,19 @@ function main() {
 
 
 function assertEqual(val1, val2) {
-    if(val1 !== val2) {
-        throw new Error(val1 + ' does not equal ' + val2);
+  var err = true;
+  if(val1 | 0 !== val1) {
+    if(Math.abs(val1 - val2) < .00000001) {
+      err = false;
     }
+  }
+  else if(val1 === val2) {
+    err = false;
+  }
+
+  if(err) {
+    throw new Error(val1 + ' does not equal ' + val2);
+  }
 }
 
 function _print(/* arg1, arg2, ..., argN */) {

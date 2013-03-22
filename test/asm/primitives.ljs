@@ -18,6 +18,7 @@ function void main() {
   assertEqual(u32(-1), 4294967295);
   assertEqual(i32(-1), -1);
 
+  // integer arithmetic
   let int x = 8;
   let int y = 6;
   assertEqual(x + y, 14);
@@ -25,7 +26,14 @@ function void main() {
   assertEqual(x / y, 1);
   assertEqual(x * y, 48);
 
+  // double arithmetic
   let double z = 5.1;
-  let double w = 5.2;
-  assertEqual(z + w, 10.3);
+  let double w = 6.0;
+  assertEqual(z + w, 11.1);
+  assertEqual(z - w, -.9);
+  assertEqual(z / w, .85);
+  assertEqual(z * w, 30.6);
+
+  // mixing ints and doubles coerces everything to doubles
+  assertEqual(z * x, 40.8);
 }

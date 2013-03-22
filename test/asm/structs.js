@@ -88,9 +88,19 @@ function main() {
 
 
 function assertEqual(val1, val2) {
-    if(val1 !== val2) {
-        throw new Error(val1 + ' does not equal ' + val2);
+  var err = true;
+  if(val1 | 0 !== val1) {
+    if(Math.abs(val1 - val2) < .00000001) {
+      err = false;
     }
+  }
+  else if(val1 === val2) {
+    err = false;
+  }
+
+  if(err) {
+    throw new Error(val1 + ' does not equal ' + val2);
+  }
 }
 
 function _print(/* arg1, arg2, ..., argN */) {

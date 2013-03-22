@@ -1,12 +1,15 @@
 
+extern assertEqual;
+
 function int add1(int x) {
   return x + 1;
 }
 
 function double square(double x, double y) {
-  return x*x + add1(y*y) + int(4.4);
+  // add1 takes an integer, so it rounds the result
+  return x*x + add1(y*y);
 }
 
-function double main() {
-  return square(2.3, 4.5);
+function void main() {
+  assertEqual(square(2.3, 4.5), 26.29);
 }

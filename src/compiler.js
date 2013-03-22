@@ -1207,7 +1207,15 @@
     }
 
     if (!this.integral) {
+      // If converting from an integer, force it to signed/unsigned
+      // (required by asm.js). This breaks literals however, since
+      // right now 6.0 is parsed as an integer, so guard against that.
+      if(rty.integral && !(expr instanceof Literal)) {
+        expr = forceType(expr);
+      }
+
       return new UnaryExpression("+", expr);
+
       // if (rty && rty.numeric) {
       //     return expr;
       // }

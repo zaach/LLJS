@@ -68,8 +68,13 @@ function main() {
   assertEqual((x | 0) / (y | 0) | 0, 1);
   assertEqual(imul(x, y), 48);
   z = 5.1;
-  w = 5.2;
-  assertEqual(z + w, 10.3);
+  w = +6.0;
+  assertEqual(z + w, 11.1);
+  assertEqual(z - w, -0.9);
+  assertEqual(z / w, 0.85);
+  assertEqual(z * w, 30.6);
+  // mixing ints and doubles coerces everything to doubles
+  assertEqual(z * +(x | 0), 40.8);
 }
 
     return { main: main };
@@ -92,9 +97,19 @@ function main() {
 
 
 function assertEqual(val1, val2) {
-    if(val1 !== val2) {
-        throw new Error(val1 + ' does not equal ' + val2);
+  var err = true;
+  if(val1 | 0 !== val1) {
+    if(Math.abs(val1 - val2) < .00000001) {
+      err = false;
     }
+  }
+  else if(val1 === val2) {
+    err = false;
+  }
+
+  if(err) {
+    throw new Error(val1 + ' does not equal ' + val2);
+  }
 }
 
 function _print(/* arg1, arg2, ..., argN */) {
