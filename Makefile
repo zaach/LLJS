@@ -13,7 +13,7 @@ js_files = memory.js memcheck.js test-memcheck.js \
 			access-nbody.js access-nbody-memcheck.js \
 			linked-list.js linked-list-memcheck.js
 
-asmtestfiles = $(addprefix test/asm/, primitives.js functions.js structs.js)
+asmtestfiles = $(addprefix test/asm/, primitives.js functions.js types.js pointers.js)
 
 mainfiles = $(addprefix $(srcdir)/, memory.js memcheck.js)
 nodefiles := $(addprefix $(build_node)/, $(js_files))
@@ -21,6 +21,7 @@ smfiles := $(addprefix $(build_sm)/, $(js_files))
 
 V8_ENGINE ?= node
 SPIDERMONKEY_ENGINE ?= js
+SPIDERMONKEY_ENGINE_NOASM ?= js
 
 
 .PHONY: all test clean node sm bench main
@@ -62,6 +63,14 @@ node: $(nodefiles)
 sm: $(smfiles)
 
 asmtest: $(asmtestfiles) $(addprefix asmtest_, $(asmtestfiles))
+asmbench: test/asm/bench.js
+	@echo "======================"
+	@echo "Using v8..."
+	$(V8_ENGINE) $<
+	@echo "Using spidermonkey..."
+	$(SPIDERMONKEY_ENGINE_NOASM) $<
+	@echo "Using spidermonkey+asm.js..."
+	$(SPIDERMONKEY_ENGINE) $<
 
 asmtest_test/asm/%.js: test/asm/%.js
 	@echo "======================"

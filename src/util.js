@@ -83,14 +83,18 @@
   }
 
   function forceType(expr) {
-    var type = expr.ty instanceof Types.PointerType ? expr.ty.base : expr.ty;
+    if(expr.ty) {
+      var type = expr.ty instanceof Types.PointerType ? expr.ty.base : expr.ty;
       
-    if(type.numeric && !type.integral) {
-      return cast(new UnaryExpression('+', expr), expr.ty);
+      if(type.numeric && !type.integral) {
+        return cast(new UnaryExpression('+', expr), expr.ty);
+      }
+      else {
+        return cast(new BinaryExpression('|', expr, new Literal(0)), expr.ty);
+      }
     }
-    else {
-      return cast(new BinaryExpression('|', expr, new Literal(0)), expr.ty);
-    }
+
+    return expr;
   }
 
   function isInteger(x) {

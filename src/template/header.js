@@ -17,6 +17,8 @@ var asm = (function (global, env, buffer) {
     var totalSize = env.TOTAL_SIZE|0;
     var assertEqual = env.assertEqual;
     var print = env.print;
+    var start = env.start;
+    var end = env.end;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);

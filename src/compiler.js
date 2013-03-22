@@ -694,6 +694,12 @@
     return Node.prototype.transform.call(this, o);
   };
 
+  ForStatement.prototype.transformNode = function(o) {
+    if(this.init instanceof ExpressionStatement) {
+      this.init = this.init.expression.expressions[0];
+    }
+  };
+
   BlockStatement.prototype.transform = function (o) {
     o = extend(o);
     o.scope = this.scope;
@@ -762,11 +768,16 @@
       return null;
     }
 
-    var decls = this.declarations;
+    var decl, decls = this.declarations;
+    var transformed = [];
+
     for(var i=0; i<decls.length; i++) {
-      decls[i] = decls[i].transform(o);
+      if((decl = decls[i].transform(o))) { 
+        transformed.push(decl);
+      }
     }
 
+    this.declarations = transformed;
     return this.transformNode(o);
   };
 
@@ -774,7 +785,11 @@
     // We shouldn't have any variable declarations here, they are
     // created in the prologue (asm.js requirement). Convert these to
     // AssignmentExpression-s if they have an initializer.
-    return new ExpressionStatement(new SequenceExpression(this.declarations));
+    if(this.declarations.length) {
+      return new ExpressionStatement(new SequenceExpression(this.declarations));
+    }
+
+    return null;
   };
 
   VariableDeclarator.prototype.transformNode = function (o) {
@@ -904,6 +919,11 @@
       } else if (rty instanceof PointerType && isNull(this.left)) {
         this.left = cast(this.left, rty);
       }
+      else {
+        this.left = cast(this.left, lty, true, true);
+        this.right = cast(this.right, rty, true, true);
+      }
+
       ty = Types.i32ty;
     } else if (BINOP_BITWISE.indexOf(op) >= 0) {
       ty = Types.i32ty;
@@ -923,7 +943,8 @@
           // Multiplication of integers is special in asm.js, and
           // requires a call to `imul` instead. See
           // http://asmjs.org/spec/latest/#intish
-          return new CallExpression(new Identifier('imul'), [this.left, this.right]);
+          return cast(new CallExpression(new Identifier('imul'), [this.left, this.right]),
+                      Types.i32ty);
         }
 
         this.left = cast(this.left, lty, true, true);
@@ -1151,15 +1172,27 @@
     }
 
     var fty = this.callee.ty;
+    var args = this.arguments;
 
     if (!fty) {
+      for(var i=0; i<args.length; i++) {
+        var unary = args[i] instanceof UnaryExpression;
+
+        // TODO: clean up this hack. if we are calling a function and
+        // don't know its types (extern), force the types only on
+        // certain expressions to make asm.js happy
+        if(args[i] instanceof Identifier ||
+           (unary && args[i].operator == '*' ||
+            unary && args[i].operator == '&')) {
+          args[i] = forceType(args[i]);
+        }
+      }
       return;
     }
 
     check(fty instanceof ArrowType, "trying to call non-function type");
 
     var paramTys = fty.paramTypes;
-    var args = this.arguments;
 
     check(paramTys.length === args.length,
           "Argument/parameter count mismatch, expected: " + paramTys.length +

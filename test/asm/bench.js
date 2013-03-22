@@ -17,6 +17,8 @@ var asm = (function (global, env, buffer) {
     var totalSize = env.TOTAL_SIZE|0;
     var assertEqual = env.assertEqual;
     var print = env.print;
+    var start = env.start;
+    var end = env.end;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
@@ -44,37 +46,25 @@ var asm = (function (global, env, buffer) {
     var imul = global.Math.imul;
 
 function main() {
-  var x = 0, y = 0, z = 0.0, w = 0.0, $SP = 0;
+  var N = 0, M = 0, f = 0, s = 0, t = 0, i = 0, $SP = 0;
   U4[1] = totalSize;
   U4[0] = 4;
-  assertEqual(1, 1);
-  assertEqual(1, 1);
-  assertEqual(2, 2);
-  assertEqual(2, 2);
-  assertEqual(4, 4);
-  assertEqual(4, 4);
-  assertEqual(4, 4);
-  assertEqual(8, 8);
-  assertEqual(-1 & 255, 255);
-  assertEqual(-1, -1);
-  assertEqual(-1 & 65535, 65535);
-  assertEqual(-1, -1);
-  assertEqual(-1 >>> 0, 4294967295);
-  assertEqual(-1, -1);
-  x = 8;
-  y = 6;
-  assertEqual((x | 0) + (y | 0) | 0, 14);
-  assertEqual((x | 0) - (y | 0) | 0, 2);
-  assertEqual((x | 0) / (y | 0) | 0, 1);
-  assertEqual(imul(x, y), 48);
-  z = 5.1;
-  w = +6.0;
-  assertEqual(z + w, 11.1);
-  assertEqual(z - w, -0.9);
-  assertEqual(z / w, 0.85);
-  assertEqual(z * w, 30.6);
-  // mixing ints and doubles coerces everything to doubles
-  assertEqual(z * +(x | 0), 40.8);
+  N = 20000;
+  M = 7000;
+  f = 0;
+  s = 0;
+  start();
+  for (t = 0; (t | 0) < (M | 0); t = (t | 0) + 1 | 0) {
+    for (i = 0; (i | 0) < (N | 0); i = (i | 0) + 1 | 0) {
+      f = ((f >>> 0) + ((i | 0) / (((t | 0) % 5 | 0 | 0) + 1 | 0 | 0) | 0 | 0) | 0) >>> 0;
+      if (f >>> 0 > 1000)
+        f = ((f >>> 0) / ((((t | 0) % 3 | 0 | 0) + 1 | 0) >>> 0 >>> 0) | 0) >>> 0;
+      if (((i | 0) % 4 | 0 | 0) == 0)
+        f = ((f >>> 0) + (imul(i, ((i | 0) % 8 | 0 | 0) == 0 ? 1 : -1) | 0) | 0) >>> 0;
+      s = ((s >>> 0) + ((imul(f & 65535, f & 65535) | 0) % 256 | 0 | 0) | 0) & 65535;
+    }
+  }
+  print(end() | 0);
 }
 
     return { main: main };
@@ -92,15 +82,21 @@ function main() {
      STACK_SIZE: STACK_SIZE,
      TOTAL_SIZE: SIZE,
      assertEqual: assertEqual,
-     print: _print },
+     print: _print,
+     start: start,
+     end: end },
    buffer);
 
 
 function assertEqual(val1, val2) {
   var err = true;
+  var msg;
   if(val1 | 0 !== val1) {
     if(Math.abs(val1 - val2) < .00000001) {
       err = false;
+    }
+    else {
+      msg = 'eps';
     }
   }
   else if(val1 === val2) {
@@ -117,4 +113,13 @@ function _print(/* arg1, arg2, ..., argN */) {
     func.apply(null, arguments);
 }
 
-_print(asm.main());
+var _time;
+function start() {
+  _time = Date.now();
+}
+
+function end() {
+  return Date.now() - _time;
+}
+
+asm.main();

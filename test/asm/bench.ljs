@@ -1,0 +1,27 @@
+
+extern start;
+extern end;
+extern print;
+
+function void main() {
+  let int N = 20000;
+  let int M = 7000;
+  let uint f = 0;
+  let u16 s = 0;
+
+  let int t;
+  let int i;
+
+  start();
+
+  for(t = 0; t < M; t = t + 1) {
+    for(i = 0; i < N; i = i + 1) {
+      f = f + i / ((t % 5) + 1);
+      if(f > 1000) f = f / uint((t % 3) + 1);
+      if(i % 4 == 0) f = f + i * (i % 8 == 0 ? 1 : -1);
+      s = s + u16(f) * u16(f) % 256;
+    }
+  }
+  
+  print(int(end()));
+}

@@ -15,15 +15,21 @@
      STACK_SIZE: STACK_SIZE,
      TOTAL_SIZE: SIZE,
      assertEqual: assertEqual,
-     print: _print },
+     print: _print,
+     start: start,
+     end: end },
    buffer);
 
 
 function assertEqual(val1, val2) {
   var err = true;
+  var msg;
   if(val1 | 0 !== val1) {
     if(Math.abs(val1 - val2) < .00000001) {
       err = false;
+    }
+    else {
+      msg = 'eps';
     }
   }
   else if(val1 === val2) {
@@ -40,4 +46,13 @@ function _print(/* arg1, arg2, ..., argN */) {
     func.apply(null, arguments);
 }
 
-_print(asm.main());
+var _time;
+function start() {
+  _time = Date.now();
+}
+
+function end() {
+  return Date.now() - _time;
+}
+
+asm.main();

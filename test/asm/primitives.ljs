@@ -25,6 +25,7 @@ function void main() {
   assertEqual(x - y, 2);
   assertEqual(x / y, 1);
   assertEqual(x * y, 48);
+  assertEqual(x % y, 2);
 
   // double arithmetic
   let double z = 5.1;
@@ -36,4 +37,21 @@ function void main() {
 
   // mixing ints and doubles coerces everything to doubles
   assertEqual(z * x, 40.8);
+
+  // while loop
+  x = 0;
+  y = 1;
+  while(x < 10) {
+    x = x + 1;
+    y = y * 2;
+  }
+  assertEqual(y, 1024);
+
+  // for loop
+  y = 1;
+  let int i; // only works when declaring outside loop (for now)
+  for(i=0; i<10; i++) {
+    y = y * 2;
+  }
+  assertEqual(y, 1024);
 }
