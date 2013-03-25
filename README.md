@@ -30,6 +30,8 @@ This is an experimental version of LLJS that compiles to asm.js. Not everything 
 
 To run the asm.js tests, run `make asmtest`. To run the benchmark, run `make asmbench`. You can see the working examples in the `test/asm` folder;
 
+You might need to define the SPIDERMONKEY_ENGINE and V8_ENGINE environment variables to run the tests (they default to `js` and `node` respectively). You will also need to define SPIDERMONKEY_ENGINE_NOASM to point to a version of SpiderMonkey without asm.js if you want to run the benchmarks.
+
 Memcheck
 ========
 
