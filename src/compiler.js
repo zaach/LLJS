@@ -405,9 +405,9 @@
     // scope.addVariable(new Variable("load"), true);
 
     // scope.addVariable(scope.freshVariable("malloc", Types.mallocTy), true);
-    // scope.addVariable(scope.freshVariable("free", Types.mallocTy), true);
-    // scope.addVariable(scope.freshVariable("mempy", Types.mallocTy), true);
-    // scope.addVariable(scope.freshVariable("memset", Types.mallocTy), true);
+    // scope.addVariable(scope.freshVariable("free", Types.freeTy), true);
+    scope.addVariable(scope.freshVariable("memcpy", Types.memcpyTy), true);
+    scope.addVariable(scope.freshVariable("memset", Types.memsetTy), true);
 
     scope.addVariable(scope.freshVariable("U1", new Types.ArrayType(Types.u8ty)), true);
     scope.addVariable(scope.freshVariable("I1", new Types.ArrayType(Types.i8ty)), true);
@@ -751,10 +751,10 @@
       var variable = scope.getVariable(this.name);
 
       check(variable, "unknown identifier " + quote(this.name) + " in scope " + scope);
-      if (!(variable.type instanceof StructStaticType)) {
-        check(variable.isStackAllocated ? variable.frame === scope.frame : true,
-              "cannot close over stack-allocated variables");
-      }
+      // if (!(variable.type instanceof StructStaticType)) {
+      //   check(variable.isStackAllocated ? variable.frame === scope.frame : true,
+      //         "cannot close over stack-allocated variables");
+      // }
 
       this.name = variable.name;
       this.variable = variable;
@@ -1718,6 +1718,10 @@
     if (this.operator === "&") {
       // We already have an aligned lookup, just grab the pointer
       // out of it though (see `alignAddress` in util.js)
+      if(arg instanceof BinaryExpression) {
+        arg = arg.left;
+      }
+
       return arg.property.left;
     }
   };
@@ -1734,9 +1738,14 @@
     } else {
       // The identifer has already been aligned, so we just need to
       // pick out the unaligned address
-      assert(this.object instanceof MemberExpression);
-      assert(this.object.property instanceof BinaryExpression);
-      address = this.object.property.left;
+      var obj = this.object;
+      if(obj instanceof BinaryExpression) {
+        obj = obj.left;
+      }
+
+      assert(obj instanceof MemberExpression);
+      assert(obj.property instanceof BinaryExpression);
+      address = obj.property.left;
     }
 
     var def = dereference(address, field.offset, field.type, o.scope, this.loc);

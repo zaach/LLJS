@@ -220,8 +220,8 @@
           code += snarf(__dirname + '/template/footer.js').toString().replace(
             '{% externs %}',
             externs.map(function(e) {
-              return e + ': ' + e + ',\n';
-            })
+              return e + ': ' + e + ',';
+            }).join('\n')
           ).replace(
             '{% exports %}',
             exports.map(function(e) {
