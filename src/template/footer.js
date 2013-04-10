@@ -11,15 +11,11 @@
      Float32Array: Float32Array,
      Float64Array: Float64Array,
      Math: Math },
-   { HEAP_SIZE: HEAP_SIZE,
+   { {% externs %}
+     HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
-     TOTAL_SIZE: SIZE,
-     assertEqual: assertEqual,
-     print: _print,
-     start: start,
-     end: end },
+     TOTAL_SIZE: SIZE },
    buffer);
-
 
 function assertEqual(val1, val2) {
   var err = true;

@@ -20,6 +20,8 @@ var asm = (function (global, env, buffer) {
     var start = env.start;
     var end = env.end;
 
+    {% imports %}
+
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
     var U2 = new global.Uint16Array(buffer);

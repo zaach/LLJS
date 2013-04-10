@@ -117,13 +117,13 @@
       ["A",           "emit-ast",     false, "Do not generate JS, emit AST"],
       ["P",           "pretty-print", false, "Pretty-print AST instead of emitting JSON (with -A)"],
       ["b",           "bare",         false, "Do not wrap in a module"],
-      ["l",           "load-instead", false, "Emit load('memory') instead of require('memory')"],
+      // ["l",           "load-instead", false, "Emit load('memory') instead of require('memory')"],
       ["W",           "warn",         true,  "Print warnings (enabled by default)"],
       ["Wconversion",  null,          false, "Print intra-integer and pointer conversion warnings"],
       ["0",           "simple-log",   false, "Log simple messages. No colors and snippets."],
       ["t",           "trace",        false, "Trace compiler execution"],
       ["o",           "output",       "",    "Output file name"],
-      ["m",           "memcheck",     false, "Compile with memcheck instrumentation"],
+      // ["m",           "memcheck",     false, "Compile with memcheck instrumentation"],
       ["h",           "help",         false, "Print this message"],
       ["w",           "nowarn",       false, "Inhibit all warning messages"]
     ]);
@@ -193,19 +193,33 @@
 
     try {
       var node = esprima.parse(source, { loc: true, comment: true, range: true, tokens: true });
-
       node = escodegen.attachComments(node, node.comments, node.tokens);
 
       if (options["only-parse"]) {
         code = node;
       } else {
-        node = compiler.compile(node, options.filename, logger, options);
+        var data = compiler.compile(node, options.filename, logger, options);
+        var externs = data.externs;
+        node = data.node;
+
         if (options["emit-ast"]) {
           code = node;
         } else {
-          code = snarf(__dirname + '/template/header.js');
+          code = snarf(__dirname + '/template/header.js').toString().replace(
+            '{% imports %}',
+            externs.map(function(e) {
+              return 'var ' + e + ' = env.' + e + ';';
+            }).join('\n')
+          );
+
           code += escodegen.generate(node, { base: "", indent: "  ", comment: true });
-          code += snarf(__dirname + '/template/footer.js');
+
+          code += snarf(__dirname + '/template/footer.js').toString().replace(
+            '{% externs %}',
+            externs.map(function(e) {
+              return e + ': ' + e + ',\n';
+            })
+          );
         }
       }
     } catch (e) {

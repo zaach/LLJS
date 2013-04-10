@@ -1755,62 +1755,23 @@
     return lowered;
   };
 
-  /**
-   * Driver
-   */
+  function extractExterns(node) {
+    var externs = [];
 
-  // function createRequire(name) {
-  //   return new CallExpression(new Identifier("require"), [literal(name)]);
-  // }
+    if(node instanceof Program) { 
+      for(var i=0; i<node.body.length; i++) {
+        var expr = node.body[i];
 
-  // function createModule(program, name, bare, loadInstead, memcheck) {
-  //   var body = [];
-  //   var cachedMEMORY = program.frame.cachedMEMORY;
-  //   if (cachedMEMORY) {
-  //     var mdecl;
-  //     // todo: causes all files named "memory.ljs" to be compiled with the memory
-  //     // var pointing at exports, probably want a better way of doing that...
-  //     if (name === "memory") {
-  //       mdecl = new VariableDeclarator(cachedMEMORY, new Identifier("exports"));
-  //     } else if (loadInstead) {
-  //       mdecl = new VariableDeclarator(cachedMEMORY, new SequenceExpression([
-  //         new CallExpression(new Identifier("load"), [literal("memory.js")]),
-  //         new Identifier("memory")]));
-  //     } else {
-  //       mdecl = new VariableDeclarator(cachedMEMORY, createRequire("memory"));
-  //     }
-  //     body.push(new VariableDeclaration("const", [mdecl]));
-  //     // todo: broken just like above
-  //     if (name !== "memory") {
-  //       assert (memcheck !== undefined);
-  //       body.push(new ExpressionStatement(
-  //         new CallExpression(new MemberExpression(cachedMEMORY, new Identifier("set_memcheck")),
-  //                            [literal(memcheck)])));
-  //     }
+        if(expr instanceof VariableDeclaration && expr.kind == 'extern') {
+          for(var j=0; j<expr.declarations.length; j++) {
+            externs.push(expr.declarations[j].id.name);
+          }
+        }
+      }
+    }
 
-  //   }
-
-  //   if (bare) {
-  //     program.body = body.concat(program.body);
-  //     return program;
-  //   }
-
-  //   body = new BlockStatement(body.concat(program.body));
-  //   var mname = name.replace(/[^\w]/g, "_");
-  //   if (mname.match(/^[0-9]/)) {
-  //     mname = "_" + mname;
-  //   }
-  //   var exports = new Identifier("exports");
-  //   var module = new MemberExpression(new FunctionExpression(null, [exports], body), new Identifier("call"));
-  //   var moduleArgs = [
-  //     new ThisExpression(),
-  //     new ConditionalExpression(
-  //       new BinaryExpression("===", new UnaryExpression("typeof", exports), literal("undefined")),
-  //       new AssignmentExpression(new Identifier(mname), "=", new ObjectExpression([])),
-  //       exports)
-  //   ];
-  //   return new Program([new ExpressionStatement(new CallExpression(module, moduleArgs))]);
-  // }
+    return externs;
+  }
 
   function warningOptions(options) {
     var warn = {};
@@ -1831,6 +1792,9 @@
     // Lift into constructors.
     node = T.lift(node);
 
+    // Extract global externs
+    var externs = extractExterns(node);
+
     // Pass 1.
     logger.info("Pass 1");
     var types = resolveAndLintTypes(node, clone(Types.builtinTypes));
@@ -1848,8 +1812,10 @@
     logger.info("Pass 4");
     node = node.lower(o);
 
-    //return T.flatten(createModule(node, name, options.bare, options["load-instead"], options.memcheck));
-    return T.flatten(node);
+    return {
+      externs: externs, 
+      node: T.flatten(node)
+    };
   }
 
   exports.compile = compile;
