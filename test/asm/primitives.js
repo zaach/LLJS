@@ -1,3 +1,4 @@
+(function() {
 
 if(!Math.imul) {
     Math.imul = function(x, y) { return x * y; };
@@ -15,10 +16,8 @@ var asm = (function (global, env, buffer) {
     var stackSize = env.STACK_SIZE|0;
     var heapSize = env.HEAP_SIZE|0;
     var totalSize = env.TOTAL_SIZE|0;
+
     var assertEqual = env.assertEqual;
-    var print = env.print;
-    var start = env.start;
-    var end = env.end;
 
     var U1 = new global.Uint8Array(buffer);
     var I1 = new global.Int8Array(buffer);
@@ -106,15 +105,12 @@ function main() {
      Float32Array: Float32Array,
      Float64Array: Float64Array,
      Math: Math },
-   { HEAP_SIZE: HEAP_SIZE,
-     STACK_SIZE: STACK_SIZE,
-     TOTAL_SIZE: SIZE,
-     assertEqual: assertEqual,
-     print: _print,
-     start: start,
-     end: end },
-   buffer);
+   { assertEqual: assertEqual,
 
+     HEAP_SIZE: HEAP_SIZE,
+     STACK_SIZE: STACK_SIZE,
+     TOTAL_SIZE: SIZE },
+   buffer);
 
 function assertEqual(val1, val2) {
   var err = true;
@@ -151,3 +147,5 @@ function end() {
 }
 
 asm.main();
+})();
+

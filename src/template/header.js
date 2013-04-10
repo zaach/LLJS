@@ -1,3 +1,4 @@
+(function() {
 
 if(!Math.imul) {
     Math.imul = function(x, y) { return x * y; };
@@ -15,10 +16,6 @@ var asm = (function (global, env, buffer) {
     var stackSize = env.STACK_SIZE|0;
     var heapSize = env.HEAP_SIZE|0;
     var totalSize = env.TOTAL_SIZE|0;
-    var assertEqual = env.assertEqual;
-    var print = env.print;
-    var start = env.start;
-    var end = env.end;
 
     {% imports %}
 

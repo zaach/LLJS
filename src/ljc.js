@@ -113,6 +113,8 @@
 
   function cli() {
     var optparser = new util.OptParser([
+      ["m",           "module-name",  "", "Export asm module as this name"],
+      ["e",           "exported-funcs", "main", "Functions to export from the asm module (comma-delimited)"],
       ["E",           "only-parse",   false, "Only parse"],
       ["A",           "emit-ast",     false, "Do not generate JS, emit AST"],
       ["P",           "pretty-print", false, "Pretty-print AST instead of emitting JSON (with -A)"],
@@ -200,6 +202,7 @@
       } else {
         var data = compiler.compile(node, options.filename, logger, options);
         var externs = data.externs;
+        var exports = options['exported-funcs'].split(',');
         node = data.node;
 
         if (options["emit-ast"]) {
@@ -219,6 +222,16 @@
             externs.map(function(e) {
               return e + ': ' + e + ',\n';
             })
+          ).replace(
+            '{% exports %}',
+            exports.map(function(e) {
+              return e + ': ' + e;
+            }).join(',\n')
+          ).replace(
+            '{% finalize %}',
+            (options['module-name'] ?
+             'window.' + options['module-name'] + ' = asm;' :
+             'asm.main();')
           );
         }
       }

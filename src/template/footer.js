@@ -1,6 +1,6 @@
 
 
-    return { main: main };
+    return { {% exports %} };
 
 })({ Uint8Array: Uint8Array,
      Int8Array: Int8Array,
@@ -51,4 +51,5 @@ function end() {
   return Date.now() - _time;
 }
 
-asm.main();
+{% finalize %}
+})();
