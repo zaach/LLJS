@@ -46,13 +46,13 @@ var asm = (function (global, env, buffer) {
 
 function main() {
   var x = 0, y = 0, z = 0, w = 0, $SP = 0;
-  U4[1] = totalSize;
+  U4[1] = totalSize - 64;
   U4[0] = 4;
   U4[1] = (U4[1] | 0) - 24;
   $SP = U4[1] | 0;
   I4[($SP) >> 2] = 42;
-  U4[(($SP) + 8 | 0) >> 2] = ($SP);
-  U4[(($SP) + 16 | 0) >> 2] = ($SP) + 8 | 0;
+  U4[(($SP) + 8 | 0) >> 2] = ($SP) | 0 | 0;
+  U4[(($SP) + 16 | 0) >> 2] = ($SP) + 8 | 0 | 0;
   I4[(U4[(($SP) + 8 | 0) >> 2]) >> 2] = 1;
   assertEqual(I4[($SP) >> 2] | 0, 1);
   I4[(U4[(U4[(($SP) + 16 | 0) >> 2]) >> 2]) >> 2] = 12;
@@ -61,6 +61,61 @@ function main() {
   U4[1] = (U4[1] | 0) + 24;
   return 0.0;
 }
+    function memcpy(dest, src, num) {
+        dest = dest|0; src = src|0; num = num|0;
+        var ret = 0;
+        ret = dest|0;
+        if ((dest&3) == (src&3)) {
+            while (dest & 3) {
+                if ((num|0) == 0) return ret|0;
+                U1[(dest)]=U1[(src)];
+                dest = (dest+1)|0;
+                src = (src+1)|0;
+                num = (num-1)|0;
+            }
+            while ((num|0) >= 4) {
+                U4[((dest)>>2)]=U4[((src)>>2)];
+                dest = (dest+4)|0;
+                src = (src+4)|0;
+                num = (num-4)|0;
+            }
+        }
+        while ((num|0) > 0) {
+            U1[(dest)]=U1[(src)];
+            dest = (dest+1)|0;
+            src = (src+1)|0;
+            num = (num-1)|0;
+        }
+        return ret|0;
+    }
+
+    function memset(ptr, value, num) {
+        ptr = ptr|0; value = value|0; num = num|0;
+        var stop = 0, value4 = 0, stop4 = 0, unaligned = 0;
+        stop = (ptr + num)|0;
+        if ((num|0) >= 20) {
+            // This is unaligned, but quite large, so work hard to get to aligned settings
+            value = value & 0xff;
+            unaligned = ptr & 3;
+            value4 = value | (value << 8) | (value << 16) | (value << 24);
+            stop4 = stop & ~3;
+            if (unaligned) {
+                unaligned = (ptr + 4 - unaligned)|0;
+                while ((ptr|0) < (unaligned|0)) { // no need to check for stop, since we have large num
+                    U1[(ptr)]=value;
+                    ptr = (ptr+1)|0;
+                }
+            }
+            while ((ptr|0) < (stop4|0)) {
+                U4[((ptr)>>2)]=value4;
+                ptr = (ptr+4)|0;
+            }
+        }
+        while ((ptr|0) < (stop|0)) {
+            U1[(ptr)]=value;
+            ptr = (ptr+1)|0;
+        }
+    }
 
     return { main: main };
 
@@ -74,7 +129,6 @@ function main() {
      Float64Array: Float64Array,
      Math: Math },
    { assertEqual: assertEqual,
-
      HEAP_SIZE: HEAP_SIZE,
      STACK_SIZE: STACK_SIZE,
      TOTAL_SIZE: SIZE },

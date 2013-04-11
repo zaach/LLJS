@@ -85,6 +85,7 @@
     this.root = parent.root;
     this.variables = Object.create(null);
     this.frame = parent.frame;
+
     assert(this.frame instanceof Frame);
   }
 
@@ -101,14 +102,31 @@
     return null;
   };
 
+  Scope.prototype.addVariable = function addVariable(variable, external) {
+    assert(variable);
+    assert(!variable.frame);
+    assert(!this.variables[variable.name], "Scope already has a variable named " + variable.name);
+    variable.frame = this.frame;
+
+    var variables = this.variables;
+    var name = variable.name;
+
+    variables[name] = variable;
+    if (!external) {
+      variable.name = this.freshName(name, variable);
+      this.frame.scopedVariables[variable.name] = variable;
+    }
+
+    //console.log("added variable " + variable + " to scope " + this);
+ };
+
   Scope.prototype.freshName = function freshName(name, variable) {
     var mangles = this.frame.mangles;
     var fresh = 0;
     var freshName = name;
 
-    // Mangle the name if it clases with anything in the root's scope,
-    // which is a hack to enable use to access the root scope if
-    // needed (think builtin variables)
+    // Mangle the name if it clases with anything in the root's scope
+    // because it gives us control over the scope (easier for asm.js)
     while (mangles[freshName] || this.root.mangles[freshName]) {
       freshName = name + "$" + ++fresh;
     }
@@ -149,23 +167,6 @@
 
     return { def: node, use: node };
   };
-
-  Scope.prototype.addVariable = function addVariable(variable, external) {
-    assert(variable);
-    assert(!variable.frame);
-    assert(!this.variables[variable.name], "Scope already has a variable named " + variable.name);
-    variable.frame = this.frame;
-
-    var variables = this.variables;
-    var name = variable.name;
-
-    variables[name] = variable;
-    if (!external) {
-      variable.name = this.freshName(name, variable);
-    }
-
-    //console.log("added variable " + variable + " to scope " + this);
- };
 
   Scope.prototype.MEMORY = function MEMORY() {
     return this.root.MEMORY();
@@ -215,6 +216,7 @@
     this.cachedLocals = Object.create(null);
     this.frame = this;
     this.mangles = Object.create(null);
+    this.scopedVariables = Object.create(null);
   }
 
   Frame.prototype = Object.create(Scope.prototype);

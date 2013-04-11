@@ -671,7 +671,45 @@
   Program.prototype.transform = function (o) {
     o = extend(o);
     o.scope = this.frame;
-    this.body = compileList(this.body, o);
+
+    // Move all global variable declarations to the top
+    var decls = [];
+    var body = [];
+    for(var i=0; i<this.body.length; i++) {
+      var node = this.body[i];
+
+      if(node instanceof VariableDeclaration) {
+        if(node.kind == 'extern') {
+          continue;
+        }
+
+        for(var j=0; j<node.declarations.length; j++) {
+          var decl = node.declarations[j];
+
+          if(o.scope.getVariable(decl.id.name).isStackAllocated) {
+            continue;
+          }
+
+          logger.push(decl);
+          check(decl.init, ('Global variable ' + quote(decl.id) +
+                            ' must have an initializer'));
+          check(decl.init instanceof Literal,
+                'Global variable ' + quote(decl.id) + 
+                ' must be a constant literal');
+          logger.pop();
+
+          decl.global = true;
+        }
+
+        node.global = true;
+        decls.push(node);
+      }
+      else {
+        body.push(node);
+      }
+    }
+
+    this.body = compileList(decls.concat(body), o);
     this.frame.close();
     return this;
   };
@@ -782,14 +820,16 @@
   };
 
   VariableDeclaration.prototype.transformNode = function (o) {
-    // We shouldn't have any variable declarations here, they are
-    // created in the prologue (asm.js requirement). Convert these to
-    // AssignmentExpression-s if they have an initializer.
-    if(this.declarations.length) {
-      return new ExpressionStatement(new SequenceExpression(this.declarations));
-    }
+    if(!this.global || this.kind == 'extern') {
+      // We shouldn't have any variable declarations here, they are
+      // created in the prologue (asm.js requirement). Convert these to
+      // AssignmentExpression-s if they have an initializer.
+      if(this.declarations.length) {
+        return new ExpressionStatement(new SequenceExpression(this.declarations));
+      }
 
-    return null;
+      return null;
+    }
   };
 
   VariableDeclarator.prototype.transformNode = function (o) {
@@ -851,11 +891,20 @@
           right.forceDouble = true;
         }
 
-        return (new AssignmentExpression(left, "=", right, this.init.loc)).transform(o);
+        var assn = (new AssignmentExpression(left, "=", right, this.init.loc)).transform(o);
+        
+        if(this.global) {
+          this.id = assn.left;
+          this.init = assn.right;
+        }
+        else {
+          return assn;
+        }
       }
     }
     else if (variable.isStackAllocated) {
-      return o.scope.freshTemp(type, this.loc);
+      //return o.scope.freshTemp(type, this.loc);
+      return null;
     }
     else {
       return null;
@@ -1368,9 +1417,7 @@
             this.base.align.size + "-byte aligned " + quote(Types.tystr(this, 0)), true);
     }
 
-    // TODO: do we still need to realign (asm.js)?
-    return expr;
-    //return realign(expr, this.base.align.size);
+    return forceType(expr, Types.u32ty);
   };
 
   StructType.prototype.convert = function (expr) {
@@ -1388,7 +1435,11 @@
         new AssignmentExpression(
           new MemberExpression(o.scope.getView(Types.u32ty), literal(1), true),
           '=',
-          new Identifier('totalSize')
+          new BinaryExpression(
+            '-',
+            new Identifier('totalSize'),
+            new Literal(o.frame.root.frameSize)
+          )
         )
       ),
 
@@ -1402,6 +1453,47 @@
     ];
   }
 
+  function createVariableDecls(node, o) {
+    var decls = [];
+    var frame = o.frame;
+
+    // Any temporary variables
+    var cachedLocals = frame.cachedLocals;
+    for(var local in cachedLocals) {
+      var v = frame.mangles[local];
+      var decl = new VariableDeclarator(new Identifier(v.name),
+                                        new Literal(v.type.defaultValue || 0));
+      if(v.type.numeric && !v.type.integral) {
+        decl.init.forceDouble = true;
+      }
+
+      decls.push(decl);
+    }
+
+    // All the declared variables. We need to declare every single
+    // variable in the whole function, so we need to scan all the
+    // nodes for all the scopes.
+    for(v in frame.scopedVariables) {
+      var variable = frame.scopedVariables[v];
+      var ty = variable.type;
+
+      // Don't process the `this` variable or any of the arguments
+      if(variable.name != 'this' &&
+         node.parameters.indexOf(variable) === -1) {
+        var decl = new VariableDeclarator(new Identifier(variable.name),
+                                          new Literal(ty.defaultValue || 0));
+        if(ty.numeric && !ty.integral) {
+          decl.init.forceDouble = true;
+        }
+
+        decls.push(decl);
+      }
+    }
+
+    decls.push(new VariableDeclarator(new Identifier('$SP'), new Literal(0)));
+    return new VariableDeclaration("var", decls);
+  }
+
   function createPrologue(node, o) {
     assert(node.frame);
 
@@ -1411,18 +1503,6 @@
     var local, v;
     var constants = [];
     var variables = [];
-
-    var cachedLocals = frame.cachedLocals;
-    for (local in cachedLocals) {
-      v = frame.mangles[local];
-      var decl = new VariableDeclarator(new Identifier(v.name),
-                                        new Literal(v.type.defaultValue || 0));
-      if(v.type.numeric && !v.type.integral) {
-        decl.init.forceDouble = true;
-      }
-
-      variables.push(decl);
-    }
 
     if (node.parameters) {
       var params = node.parameters;
@@ -1468,29 +1548,7 @@
       }
     }
 
-    for(v in frame.variables) {
-      var variable = frame.variables[v];
-      var ty = variable.type;
-      var decl;
-
-      // Don't process the `this` variable or any of the arguments
-      if(variable.name != 'this' &&
-         node.parameters.indexOf(variable) === -1) {
-        decl = new VariableDeclarator(new Identifier(variable.name),
-                                      new Literal(ty.defaultValue || 0));
-        if(ty.numeric && !ty.integral) {
-          decl.init.forceDouble = true;
-        }
-
-        variables.push(decl);
-      }
-    }
-
-    variables.push(new VariableDeclarator(new Identifier('$SP'), new Literal(0)));
-
-    if(variables.length) {
-        code.push(new VariableDeclaration("var", variables));
-    }
+    code.push(createVariableDecls(node, o));
 
     if(node.id.name == 'main') {
       code = code.concat(addMainInitializers(node, o));
@@ -1512,7 +1570,6 @@
       var spDecl = new AssignmentExpression(frame.SP(), "=", forceType(frame.realSP()));
       code.push(new ExpressionStatement(spDecl));
     }
-
 
     return code;
   }
@@ -1594,6 +1651,7 @@
       //}
     }
     this.body.body = lowerList(this.body.body, o);
+
     var prologue = createPrologue(this, o);
     var epilogue = createEpilogue(this, o);
     this.body.body = prologue.concat(this.body.body).concat(epilogue);

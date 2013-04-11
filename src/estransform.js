@@ -113,12 +113,12 @@
 
     VariableDeclaration: {
       extends: "Declaration",
-      fields:  ["kind", "@declarations"]
+      fields:  ["kind", "@declarations", "global"]
     },
 
     VariableDeclarator: {
       extends: "Node",
-      fields:  ["@id", "@init", "@decltype", "@arguments"]
+      fields:  ["@id", "@init", "@decltype", "@arguments", "global"]
     },
 
     Expression: {

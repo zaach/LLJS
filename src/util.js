@@ -82,9 +82,9 @@
     return expr;
   }
 
-  function forceType(expr) {
-    if(expr.ty) {
-      var type = expr.ty instanceof Types.PointerType ? expr.ty.base : expr.ty;
+  function forceType(expr, type) {
+    if(expr.ty || type) {
+      type = type || expr.ty instanceof Types.PointerType ? expr.ty.base : expr.ty;
       
       if(type.numeric && !type.integral) {
         return cast(new UnaryExpression('+', expr), expr.ty);
