@@ -522,6 +522,7 @@
 
      check(!scope.getVariable(name, true),
           "Variable " + quote(name) + " is already declared in local scope.");
+
     scope.addVariable(new Variable(name, ty), o.declkind === "extern");
   };
 
@@ -685,19 +686,19 @@
 
         for(var j=0; j<node.declarations.length; j++) {
           var decl = node.declarations[j];
+          var variable = o.scope.getVariable(decl.id.name);
 
-          if(o.scope.getVariable(decl.id.name).isStackAllocated) {
-            continue;
+          if(!variable.isStackAllocated) {
+            logger.push(decl);
+            check(decl.init, ('Global variable ' + quote(decl.id) +
+                              ' must have an initializer'));
+            check(decl.init instanceof Literal,
+                  'Global variable ' + quote(decl.id) + 
+                  ' must be a constant literal');
+            logger.pop();
           }
 
-          logger.push(decl);
-          check(decl.init, ('Global variable ' + quote(decl.id) +
-                            ' must have an initializer'));
-          check(decl.init instanceof Literal,
-                'Global variable ' + quote(decl.id) + 
-                ' must be a constant literal');
-          logger.pop();
-
+          variable.global = true;
           decl.global = true;
         }
 
@@ -711,6 +712,15 @@
 
     this.body = compileList(decls.concat(body), o);
     this.frame.close();
+
+    var globalSP = new VariableDeclaration(
+      'var',
+      [new VariableDeclarator(new Identifier('globalSP'),
+                              new Literal(this.frame.frameSize),
+                              Types.u32ty)]
+    );
+
+    this.body.unshift(globalSP);
     return this;
   };
 
@@ -1758,7 +1768,7 @@
       var lty = this.left.ty;
       var rty = this.right.ty;
       if (rty instanceof PrimitiveType && rty.integral) {
-        var scale = lty.base.size / lty.base.align.size;
+        var scale = lty.base.size;
         if (scale > 1) {
           this.right = new BinaryExpression("*", this.right, literal(scale), this.right.loc);
         }
@@ -1770,6 +1780,11 @@
     var arg = this.argument;
 
     if (this.operator === "*") {
+      // The identifer has already been aligned, so we just need to
+      // pick out the unaligned address
+      assert(arg.left instanceof BinaryExpression);
+      arg.left = arg.left.left;
+
       return dereference(arg, 0, this.ty, o.scope, this.loc);
     }
 
@@ -1817,7 +1832,7 @@
   CastExpression.prototype.lowerNode = function (o) {
     // Treat user casts as forced casts so we don't emit warnings.
     var lowered = this.ty.convert(this.argument, (!!this.as || this.force), o.warn);
-      // Remember (coerce) the type for nested conversions.
+    // Remember (coerce) the type for nested conversions.
     lowered.ty = this.ty;
     return lowered;
   };

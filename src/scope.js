@@ -47,6 +47,7 @@
   const cast = util.cast;
   const alignTo = util.alignTo;
   const dereference = util.dereference;
+  const forceType = util.forceType;
 
   /**
    * Import types.
@@ -62,9 +63,10 @@
    * Scopes and Variables
    */
 
-  function Variable(name, type) {
+  function Variable(name, type, global) {
     this.name = name;
     this.type = type;
+    this.global = global;
     this.isStackAllocated = (type instanceof StructType || type instanceof ArrayType);
   }
 
@@ -76,7 +78,22 @@
     assert(this.isStackAllocated);
     assert(typeof this.byteOffset !== "undefined", "stack-allocated variable offset not computed.");
     var byteOffset = this.byteOffset;
-    return dereference(scope.SP(), byteOffset, this.type, scope, loc);
+    var sp;
+    if(this.global) {
+      sp = forceType(
+        new BinaryExpression(
+          '-',
+          new Identifier('totalSize'),
+          new Identifier('globalSP')
+        ),
+        Types.i32ty
+      );
+    }
+    else {
+      sp = scope.SP();
+    }
+
+    return dereference(sp, byteOffset, this.type, scope, loc);
   };
 
   function Scope(parent, name) {
