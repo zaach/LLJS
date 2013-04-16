@@ -418,6 +418,10 @@
     scope.addVariable(scope.freshVariable("F4", new Types.ArrayType(Types.f32ty)), true);
     scope.addVariable(scope.freshVariable("F8", new Types.ArrayType(Types.f64ty)), true);
 
+    scope.addVariable(
+        scope.freshVariable("sqrt", new Types.ArrowType([Types.f32ty], Types.f32ty)), true
+    );
+
     logger.push(this);
     scanList(this.body, o);
     logger.pop();
@@ -1150,14 +1154,7 @@
 
     if (lty instanceof StructType) {
       var mc = scope.MEMCPY();
-      var size, pty;
-      if (lty.align === Types.u32ty) {
-        size = lty.size / 4;
-      } else if (lty.align === Types.u16ty) {
-        size = lty.size / 2;
-      } else {
-        size = lty.size;
-      }
+      var size = lty.size;
       var memcpyTy = mc.ty.paramTypes[0];
       var left = cast(new UnaryExpression("&", this.left, this.left.loc), memcpyTy, true);
       var right = cast(new UnaryExpression("&", this.right, this.right.loc), memcpyTy, true);
@@ -1780,10 +1777,11 @@
     var arg = this.argument;
 
     if (this.operator === "*") {
-      // The identifer has already been aligned, so we just need to
+      // If the identifer has already been aligned, so we just need to
       // pick out the unaligned address
-      assert(arg.left instanceof BinaryExpression);
-      arg.left = arg.left.left;
+      if(arg.left instanceof BinaryExpression) {
+        arg.left = arg.left.left;
+      }
 
       return dereference(arg, 0, this.ty, o.scope, this.loc);
     }

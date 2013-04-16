@@ -8,7 +8,7 @@ var MB = 1024 * 1024;
 var SIZE = 256 * MB;
 var STACK_SIZE = 2 * MB;
 var HEAP_SIZE = SIZE - STACK_SIZE;
-var buffer = new ArrayBuffer(SIZE);
+var buffer = window.asmBuffer = new ArrayBuffer(SIZE);
 
 var asm = (function (global, env, buffer) {
     "use asm";
