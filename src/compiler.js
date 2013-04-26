@@ -1752,7 +1752,7 @@
         var popMemcheck = new CallExpression(scope.MEMCHECK_CALL_POP(), []);
         exprList.push(popMemcheck);
       }
-      exprList.push(t);
+      exprList.push(forceType(cast(t, scope.frame.returnType)));
       this.argument = new SequenceExpression(exprList, arg.loc);
     }
   };
