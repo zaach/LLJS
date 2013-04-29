@@ -230,7 +230,7 @@
           ).replace(
             '{% finalize %}',
             (options['module-name'] ?
-             'window.' + options['module-name'] + ' = asm;' :
+             'if (asm.main) asm.main();\nwindow.' + options['module-name'] + ' = asm;' :
              'asm.main();')
           );
         }
